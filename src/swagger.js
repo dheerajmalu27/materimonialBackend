@@ -11,7 +11,7 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:3000/api',
+        url: 'http://0.0.0.0:3000/api',
         description: 'Development server',
       },
     ],
@@ -93,6 +93,22 @@ const options = {
             about_me: {
               type: 'string',
               example: 'I am a software engineer looking for a life partner.',
+            },
+            default_photo: {
+              type: 'string',
+              example: 'https://example.com/photos/default.jpg',
+            },
+            short_photo: {
+              type: 'string',
+              example: 'https://example.com/photos/short.jpg',
+            },
+            default_photo: {
+              type: 'string',
+              example: 'https://example.com/photos/default.jpg',
+            },
+            short_photo: {
+              type: 'string',
+              example: 'https://example.com/photos/short.jpg',
             },
             address: {
               type: 'object',
@@ -247,6 +263,7 @@ const options = {
             address_type: {
               type: 'string',
               enum: ['present', 'permanent', 'both'],
+              description: 'Type of address. Use "both" if present and permanent addresses are identical.',
               example: 'present',
             },
             city: {

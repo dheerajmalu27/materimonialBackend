@@ -8,7 +8,7 @@ import {validate} from '../../middlewares/validate.middleware.js';
 const router = express.Router();
 /**
  * @swagger
- * /v1/chat/conversations:
+ * /v1/messages/conversations:
  *   post:
  *     summary: Create a new conversation with another user
  *     tags: [Chat]
@@ -35,23 +35,58 @@ const router = express.Router();
  *             schema:
  *               type: object
  *               properties:
- *                 id:
- *                   type: integer
- *                   example: 1
- *                 user1Id:
- *                   type: integer
- *                   example: 1
- *                 user2Id:
- *                   type: integer
- *                   example: 2
- *                 createdAt:
- *                   type: string
- *                   format: date-time
- *                   example: "2023-12-01T09:00:00Z"
- *                 updatedAt:
- *                   type: string
- *                   format: date-time
- *                   example: "2023-12-01T09:00:00Z"
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     conversations:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "conv_123"
+ *                           participant:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "user_456"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Jane Smith"
+ *                               profileImage:
+ *                                 type: string
+ *                                 example: "https://example.com/images/user_456.jpg"
+ *                               isOnline:
+ *                                 type: boolean
+ *                                 example: true
+ *                           lastMessage:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "msg_789"
+ *                               text:
+ *                                 type: string
+ *                                 example: "Hi! We matched!"
+ *                               timestamp:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 example: "2024-01-15T10:30:00Z"
+ *                               isRead:
+ *                                 type: boolean
+ *                                 example: false
+ *                           unreadCount:
+ *                             type: integer
+ *                             example: 2
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00Z"
  *       400:
  *         description: Bad request - Invalid input data
  *       401:
@@ -63,9 +98,9 @@ router.post('/conversations', authGuard, validate(chatValidation.createConversat
 
 /**
  * @swagger
- * /v1/chat/conversations:
+ * /v1/messages/conversations:
  *   get:
- *     summary: Get all conversations for the authenticated user
+ *     summary: Get list of user conversations
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -75,27 +110,60 @@ router.post('/conversations', authGuard, validate(chatValidation.createConversat
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 1
- *                   user1Id:
- *                     type: integer
- *                     example: 1
- *                   user2Id:
- *                     type: integer
- *                     example: 2
- *                   createdAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2023-12-01T09:00:00Z"
- *                   updatedAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2023-12-01T10:00:00Z"
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     conversations:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "conv_123"
+ *                           participant:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "user_456"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Jane Smith"
+ *                               profileImage:
+ *                                 type: string
+ *                                 example: "https://example.com/images/user_456.jpg"
+ *                               isOnline:
+ *                                 type: boolean
+ *                                 example: true
+ *                           lastMessage:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "msg_789"
+ *                               text:
+ *                                 type: string
+ *                                 example: "Hi! We matched!"
+ *                               timestamp:
+ *                                 type: string
+ *                                 format: date-time
+ *                                 example: "2024-01-15T10:30:00Z"
+ *                               isRead:
+ *                                 type: boolean
+ *                                 example: false
+ *                           unreadCount:
+ *                             type: integer
+ *                             example: 2
+ *                           updatedAt:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00Z"
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       500:
@@ -151,16 +219,16 @@ router.get('/conversations', authGuard, chat.getConversations);
  *       500:
  *         description: Internal server error
  */
-router.get('/conversations/:id', authGuard, validate(chatValidation.getConversationSchema), chat.getConversation);
+router.get('/chat/conversations/:id', authGuard, validate(chatValidation.getConversationSchema), chat.getConversation);
 router.delete('/conversations/:id', authGuard, validate(chatValidation.deleteConversationSchema), chat.deleteConversation);
 
 router.post('/messages', authGuard, validate(chatValidation.sendMessageSchema), chat.sendMessage);
 
 /**
  * @swagger
- * /v1/chat/messages/{conversationId}:
+ * /v1/messages/conversations/{conversationId}:
  *   get:
- *     summary: Get all messages in a conversation
+ *     summary: Get messages for a specific conversation
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -169,38 +237,73 @@ router.post('/messages', authGuard, validate(chatValidation.sendMessageSchema), 
  *         name: conversationId
  *         required: true
  *         schema:
- *           type: integer
+ *           type: string
  *         description: Conversation ID
- *         example: 1
+ *         example: "conv_123"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Number of messages to return
+ *       - in: query
+ *         name: before
+ *         schema:
+ *           type: string
+ *         description: Get messages before this message ID
  *     responses:
  *       200:
  *         description: Messages retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 123
- *                   conversationId:
- *                     type: integer
- *                     example: 1
- *                   senderId:
- *                     type: integer
- *                     example: 1
- *                   message:
- *                     type: string
- *                     example: "Hello, how are you?"
- *                   sentAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2023-12-01T10:00:00Z"
- *                   isRead:
- *                     type: boolean
- *                     example: false
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     conversationId:
+ *                       type: string
+ *                       example: "conv_123"
+ *                     participant:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           example: "user_456"
+ *                         name:
+ *                           type: string
+ *                           example: "Jane Smith"
+ *                         profileImage:
+ *                           type: string
+ *                           example: "https://example.com/images/user_456.jpg"
+ *                     messages:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "msg_785"
+ *                           text:
+ *                             type: string
+ *                             example: "Hi, I saw your profile and thought we might be a good match!"
+ *                           timestamp:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:00:00Z"
+ *                           senderId:
+ *                             type: string
+ *                             example: "user_456"
+ *                           isRead:
+ *                             type: boolean
+ *                             example: true
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: false
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       404:
@@ -208,7 +311,7 @@ router.post('/messages', authGuard, validate(chatValidation.sendMessageSchema), 
  *       500:
  *         description: Internal server error
  */
-router.get('/messages/:conversationId', authGuard, validate(chatValidation.getMessagesSchema), chat.getMessages);
+router.get('/conversations/:conversationId', authGuard, validate(chatValidation.getMessagesSchema), chat.getMessages);
 /**
  * @swagger
  * /v1/chat/messages/{id}:

@@ -80,6 +80,19 @@ export const getMessagesSchema = {
         'number.positive': 'Conversation ID must be positive',
         'any.required': 'Conversation ID is required'
       })
+  }),
+  query: Joi.object({
+    limit: Joi.number().integer().min(1).max(100).default(50)
+      .messages({
+        'number.base': 'Limit must be a number',
+        'number.integer': 'Limit must be an integer',
+        'number.min': 'Limit must be at least 1',
+        'number.max': 'Limit cannot exceed 100'
+      }),
+    before: Joi.string().optional()
+      .messages({
+        'string.base': 'Before must be a string'
+      })
   })
 };
 

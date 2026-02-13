@@ -32,6 +32,10 @@ export default class User extends Model {
           type: DataTypes.BOOLEAN,
           defaultValue: true,
           field: 'is_active'
+        },
+        createdAt: {
+          type: DataTypes.DATE,
+          field: 'created_at'
         }
       },
       {
@@ -65,6 +69,26 @@ export default class User extends Model {
    this.hasOne(models.UserKundli, {
     foreignKey: 'userId',
     as: 'kundli'
+  });
+   this.hasOne(models.UserLifestyle, {
+    foreignKey: 'userId',
+    as: 'lifestyle'
+  });
+   this.hasOne(models.UserFamily, {
+    foreignKey: 'userId',
+    as: 'family'
+  });
+   this.hasOne(models.UserProfession, {
+    foreignKey: 'userId',
+    as: 'profession'
+  });
+   this.hasMany(models.Conversation, {
+    foreignKey: 'user1_id',
+    as: 'conversationsAsUser1'
+  });
+  this.hasMany(models.Conversation, {
+    foreignKey: 'user2_id',
+    as: 'conversationsAsUser2'
   });
    }
 }

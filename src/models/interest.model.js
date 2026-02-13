@@ -18,11 +18,20 @@ export default class Interest extends Model {
           field: 'receiver_id'
         },
         status: {
-          type: DataTypes.STRING
+          type: DataTypes.ENUM('pending', 'accepted', 'declined'),
+          defaultValue: 'pending'
+        },
+        message: {
+          type: DataTypes.TEXT,
+          allowNull: true
         },
         createdAt: {
           type: DataTypes.DATE,
           field: 'created_at'
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          field: 'updated_at'
         }
       },
       {

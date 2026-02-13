@@ -1,20 +1,38 @@
 import express from 'express';
 import { authGuard } from '../../middlewares/auth.middleware.js';
-import { getMatches } from './match.controller.js';
+import { getMatches, getPotentialMatches } from './match.controller.js';
 
 const router = express.Router();
 
 /**
  * @swagger
- * /v1/match/suggestions:
+ * /v1/matches/potential:
  *   get:
- *     summary: Get match suggestions for the current user
+ *     summary: Get list of potential matches for the user
  *     tags: [Match]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of matches to return
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Pagination offset
+ *       - in: query
+ *         name: city
+ *         schema:
+ *           type: string
+ *         description: Filter by city for My City page
  *     responses:
  *       200:
- *         description: Match suggestions retrieved successfully
+ *         description: Potential matches retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -23,112 +41,68 @@ const router = express.Router();
  *                 success:
  *                   type: boolean
  *                   example: true
- *                 total:
- *                   type: integer
- *                   example: 5
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 2
- *                       email:
- *                         type: string
- *                         example: "user2@example.com"
- *                       mobile:
- *                         type: string
- *                         example: "+1234567891"
- *                       gender:
- *                         type: string
- *                         example: "female"
- *                       profile:
+ *                   type: object
+ *                   properties:
+ *                     matches:
+ *                       type: array
+ *                       items:
  *                         type: object
  *                         properties:
  *                           id:
+ *                             type: string
+ *                             example: "user_456"
+ *                           name:
+ *                             type: string
+ *                             example: "Jane Smith"
+ *                           age:
  *                             type: integer
- *                             example: 2
- *                           firstName:
+ *                             example: 26
+ *                           location:
  *                             type: string
- *                             example: "Jane"
- *                           lastName:
+ *                             example: "Pune, India"
+ *                           occupation:
  *                             type: string
- *                             example: "Smith"
- *                           dob:
+ *                             example: "Doctor"
+ *                           bio:
  *                             type: string
- *                             format: date
- *                             example: "1992-05-15"
- *                           heightCm:
- *                             type: integer
- *                             example: 165
- *                           weightKg:
- *                             type: integer
- *                             example: 55
- *                           maritalStatus:
- *                             type: string
- *                             example: "never_married"
+ *                             example: "Passionate about helping others and finding true love"
  *                           religion:
  *                             type: string
  *                             example: "Hindu"
  *                           caste:
  *                             type: string
- *                             example: "Brahmin"
- *                           motherTongue:
+ *                             example: "Kayasth"
+ *                           height:
  *                             type: string
- *                             example: "Hindi"
- *                           aboutMe:
+ *                             example: "5'4\""
+ *                           education:
  *                             type: string
- *                             example: "I am a software engineer looking for a life partner."
- *                       addresses:
- *                         type: array
- *                         items:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: integer
- *                               example: 2
- *                             addressType:
- *                               type: string
- *                               enum: [present, permanent, both]
- *                               example: "present"
- *                             city:
- *                               type: string
- *                               example: "Delhi"
- *                             state:
- *                               type: string
- *                               example: "Delhi"
- *                             country:
- *                               type: string
- *                               example: "India"
- *                             pincode:
- *                               type: string
- *                               example: "110001"
- *                       education:
- *                         type: array
- *                         items:
- *                           type: object
- *                           properties:
- *                             id:
- *                               type: integer
- *                               example: 2
- *                             highestDegree:
- *                               type: string
- *                               example: "Bachelor of Technology"
- *                             college:
- *                               type: string
- *                               example: "IIT Delhi"
- *                             specialization:
- *                               type: string
- *                               example: "Computer Science"
- *                             passingYear:
- *                               type: integer
- *                               example: 2014
+ *                             example: "MBBS"
+ *                           profileImage:
+ *                             type: string
+ *                             example: "https://example.com/images/user_456.jpg"
+ *                           compatibilityScore:
+ *                             type: integer
+ *                             example: 85
+ *                           isVerified:
+ *                             type: boolean
+ *                             example: true
+ *                           lastActive:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-14T15:30:00Z"
+ *                     totalCount:
+ *                       type: integer
+ *                       example: 150
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: true
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       500:
  *         description: Internal server error
  */
-router.get('/suggestions', authGuard, getMatches);
+router.get('/potential', authGuard, getPotentialMatches);
 
 export default router;

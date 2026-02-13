@@ -21,11 +21,15 @@ export const cancel = async (req, res) => {
 };
 
 export const sent = async (req, res) => {
-  res.json(await service.getSentInterests(req.user.id));
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = parseInt(req.query.offset) || 0;
+  res.json(await service.getSentInterests(req.user.id, limit, offset));
 };
 
 export const received = async (req, res) => {
-  res.json(await service.getReceivedInterests(req.user.id));
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = parseInt(req.query.offset) || 0;
+  res.json(await service.getReceivedInterests(req.user.id, limit, offset));
 };
 
 export const mutual = async (req, res) => {

@@ -35,7 +35,21 @@ export default class UserProfile extends Model {
         aboutMe: {
           type: DataTypes.TEXT,
           field: 'about_me'
-        }
+        },
+        occupation: DataTypes.STRING,
+        location: DataTypes.STRING,
+        education: DataTypes.STRING,
+        income: DataTypes.STRING,
+        phone: DataTypes.STRING,
+        profileImage: {
+          type: DataTypes.STRING,
+          field: 'profile_image'
+        },
+        isOnline: {
+          type: DataTypes.BOOLEAN,
+          field: 'is_online',
+          defaultValue: false
+        },
       },
       {
         sequelize,

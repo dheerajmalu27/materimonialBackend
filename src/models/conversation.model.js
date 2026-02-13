@@ -35,8 +35,16 @@ export default class Conversation extends Model {
   }
 
   static associate(models) {
+    this.belongsTo(models.User, {
+      foreignKey: 'user1Id',
+      as: 'user1'
+    });
+    this.belongsTo(models.User, {
+      foreignKey: 'user2Id',
+      as: 'user2'
+    });
     this.hasMany(models.Message, {
-      foreignKey: 'conversation_id',
+      foreignKey: 'conversationId',
       as: 'messages'
     });
   }

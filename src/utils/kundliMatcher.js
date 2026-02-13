@@ -1,3 +1,5 @@
+import AshtaKoota from "../services/ashtaKoota.service.js";
+
 export const matchKundli = (kundliA, kundliB) => {
   let score = 0;
 
@@ -10,11 +12,8 @@ export const matchKundli = (kundliA, kundliB) => {
     };
   }
 
-  // 🔮 Dummy logic (replace with astrology lib later)
-  if (kundliA.nakshatra === kundliB.nakshatra) score += 8;
-  if (kundliA.moonSign === kundliB.moonSign) score += 6;
-
-  score += 10; // Assume partial match for other gunas
+  const ashtaScores = AshtaKoota.calculate(kundliA, kundliB);
+  score = ashtaScores.total;
 
   return {
     allowed: score >= 18,

@@ -6,7 +6,12 @@ export const register = async (req, res, next) => {
     const user = await registerUser(req.body);
     res.status(201).json({
       success: true,
-      data: user
+      message: "User registered successfully",
+      data: {
+        userId: user.id,
+        email: user.email,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+      }
     });
   } catch (error) {
     console.error('REGISTER ERROR 👉', error.message); // 🔥 IMPORTANT
@@ -25,9 +30,16 @@ export const login = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Login successful',
-      data,
+      data: {
+        userId: data.user.id,
+        email: data.user.email,
+        name: data.user.email, // TODO: Get from profile
+        accessToken: data.token,
+        refreshToken: data.refreshToken || null,
+        expiresIn: 3600
+      }
     });
-    
+
   } catch (error) {
     next(error);
   }
@@ -38,7 +50,13 @@ export const logout = async (_, res) =>
 
 export const refreshToken = async (req, res) => {
   const token = await service.refreshToken(req.body.refreshToken);
-  res.json({ accessToken: token });
+  res.json({
+    success: true,
+    data: {
+      accessToken: token,
+      expiresIn: 3600
+    }
+  });
 };
 
 export const sendOtp = async (req, res) => {

@@ -9,20 +9,23 @@ import InteractactionRoutes from '../modules/interactions/interactions.routes.js
 import Chat from '../modules/chat/chat.routes.js'
 import blocksRoutes from '../modules/blocks/blocks.routes.js';
 import kundli from '../modules/kundli/kundli.routes.js';
+import masterRoutes from '../modules/master/master.routes.js';
+
 const router = Router();
+
 // AUTH
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
 router.use('/profile', profileRoutes);
 router.use('/education', educationRoutes);
-router.use('/match', matchRoutes);
+router.use('/matches', matchRoutes);
 router.use('/partner-preference', partnerPreferenceRoutes);
-router.use('/interaction',InteractactionRoutes);
-router.use('/chat',Chat);
+router.use('/interaction', InteractactionRoutes);
+router.use('/messages', Chat);
 router.use('/blocks', blocksRoutes);
 router.use('/kundli', kundli);
+router.use('/master', masterRoutes);
 
-// USER (protected)
-router.use('/users', userRoutes);
 // Example route
 router.get('/health', (req, res) => {
   res.json({

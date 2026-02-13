@@ -191,85 +191,195 @@ router.post('/interests/cancel', authGuard, interest.cancel);
 
 /**
  * @swagger
- * /v1/interaction/interests/sent:
+ * /v1/requests/sent:
  *   get:
- *     summary: Get interests sent by the user
+ *     summary: Get list of connection requests sent by the current user
  *     tags: [Interactions]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of requests to return
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Pagination offset
  *     responses:
  *       200:
- *         description: Sent interests retrieved successfully
+ *         description: Sent requests retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 1
- *                   senderId:
- *                     type: integer
- *                     example: 1
- *                   receiverId:
- *                     type: integer
- *                     example: 2
- *                   status:
- *                     type: string
- *                     example: "sent"
- *                   createdAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2023-12-01T09:00:00Z"
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requests:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "req_123"
+ *                           recipient:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "user_456"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Jane Smith"
+ *                               age:
+ *                                 type: integer
+ *                                 example: 26
+ *                               location:
+ *                                 type: string
+ *                                 example: "Pune, India"
+ *                               occupation:
+ *                                 type: string
+ *                                 example: "Doctor"
+ *                               profileImage:
+ *                                 type: string
+ *                                 example: "https://example.com/images/user_456.jpg"
+ *                           message:
+ *                             type: string
+ *                             example: "Hi, I found your profile interesting. Would like to connect."
+ *                           timestamp:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00Z"
+ *                           status:
+ *                             type: string
+ *                             example: "pending"
+ *                     totalCount:
+ *                       type: integer
+ *                       example: 5
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: false
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       500:
  *         description: Internal server error
  */
-router.get('/interests/sent', authGuard, interest.sent);
+router.get('/requests/sent', authGuard, interest.sent);
 
 /**
  * @swagger
- * /v1/interaction/interests/received:
+ * /v1/requests/received:
  *   get:
- *     summary: Get interests received by the user
+ *     summary: Get list of connection requests received by the current user
  *     tags: [Interactions]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Number of requests to return
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Pagination offset
  *     responses:
  *       200:
- *         description: Received interests retrieved successfully
+ *         description: Received requests retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 1
- *                   senderId:
- *                     type: integer
- *                     example: 2
- *                   receiverId:
- *                     type: integer
- *                     example: 1
- *                   status:
- *                     type: string
- *                     example: "sent"
- *                   createdAt:
- *                     type: string
- *                     format: date-time
- *                     example: "2023-12-01T09:00:00Z"
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     requests:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             example: "req_125"
+ *                           sender:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: string
+ *                                 example: "user_456"
+ *                               name:
+ *                                 type: string
+ *                                 example: "Jane Smith"
+ *                               age:
+ *                                 type: integer
+ *                                 example: 26
+ *                               location:
+ *                                 type: string
+ *                                 example: "Pune, India"
+ *                               occupation:
+ *                                 type: string
+ *                                 example: "Doctor"
+ *                               bio:
+ *                                 type: string
+ *                                 example: "Passionate about helping others and finding true love"
+ *                               religion:
+ *                                 type: string
+ *                                 example: "Hindu"
+ *                               caste:
+ *                                 type: string
+ *                                 example: "Kayasth"
+ *                               height:
+ *                                 type: string
+ *                                 example: "5'4\""
+ *                               education:
+ *                                 type: string
+ *                                 example: "MBBS"
+ *                               income:
+ *                                 type: string
+ *                                 example: "₹6,00,000 - ₹8,00,000"
+ *                               profileImage:
+ *                                 type: string
+ *                                 example: "https://example.com/images/user_456.jpg"
+ *                           message:
+ *                             type: string
+ *                             example: "Hi, I found your profile interesting. Would like to connect."
+ *                           timestamp:
+ *                             type: string
+ *                             format: date-time
+ *                             example: "2024-01-15T10:30:00Z"
+ *                           status:
+ *                             type: string
+ *                             example: "pending"
+ *                     totalCount:
+ *                       type: integer
+ *                       example: 2
+ *                     hasMore:
+ *                       type: boolean
+ *                       example: false
  *       401:
  *         description: Unauthorized - Invalid or missing token
  *       500:
  *         description: Internal server error
  */
-router.get('/interests/received', authGuard, interest.received);
+router.get('/requests/received', authGuard, interest.received);
 
 /**
  * @swagger

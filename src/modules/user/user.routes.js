@@ -101,6 +101,95 @@ router.get('/me', authGuard, (req, res) => {
  */
 router.get('/:id', authGuard, uc.getUserById);
 
+
+
+/**
+ * @swagger
+ * /v1/users/profile/{userId}:
+ *   get:
+ *     summary: Get user profile by ID
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *         example: "user_456"
+ *     responses:
+ *       200:
+ *         description: User profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: "user_456"
+ *                     name:
+ *                       type: string
+ *                       example: "Jane Smith"
+ *                     age:
+ *                       type: integer
+ *                       example: 26
+ *                     location:
+ *                       type: string
+ *                       example: "Pune, India"
+ *                     occupation:
+ *                       type: string
+ *                       example: "Doctor"
+ *                     bio:
+ *                       type: string
+ *                       example: "Passionate about helping others and finding true love"
+ *                     images:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: []
+ *                     religion:
+ *                       type: string
+ *                       example: "Hindu"
+ *                     caste:
+ *                       type: string
+ *                       example: "Kayasth"
+ *                     height:
+ *                       type: string
+ *                       example: "5'4\""
+ *                     education:
+ *                       type: string
+ *                       example: "MBBS"
+ *                     income:
+ *                       type: string
+ *                       example: "₹6,00,000 - ₹8,00,000"
+ *                     isOnline:
+ *                       type: boolean
+ *                       example: false
+ *                     lastActive:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2024-01-14T15:30:00Z"
+ *                     isVerified:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/profile/:id', authGuard, uc.getUserProfileById);
+
 /**
  * @swagger
  * /v1/user/{id}:
@@ -526,5 +615,366 @@ router.post('/me/deactivate', authGuard, uc.deactivateAccount);
  *         description: Internal server error
  */
 router.post('/me/reactivate', authGuard, uc.reactivateAccount);
+
+/**
+ * @swagger
+ * /v1/users/me/homepage:
+ *   get:
+ *     summary: Get homepage profiles for current user
+ *     description: Returns recently added user profiles that match partner preferences and are in the same city (max 10 results)
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Homepage profiles retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 2
+ *                       firstName:
+ *                         type: string
+ *                         example: "Jane"
+ *                       lastName:
+ *                         type: string
+ *                         example: "Smith"
+ *                       age:
+ *                         type: integer
+ *                         example: 28
+ *                       height:
+ *                         type: integer
+ *                         example: 165
+ *                       currentCity:
+ *                         type: string
+ *                         example: "Mumbai"
+ *                       currentState:
+ *                         type: string
+ *                         example: "Maharashtra"
+ *                       education:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           degree:
+ *                             type: string
+ *                             example: "Bachelor of Engineering"
+ *                           college:
+ *                             type: string
+ *                             example: "IIT Bombay"
+ *                           specialization:
+ *                             type: string
+ *                             example: "Computer Science"
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/me/homepage', authGuard, uc.getHomePageProfiles);
+
+/**
+ * @swagger
+ * /v1/user/me/recently-added:
+ *   get:
+ *     summary: Get recently added user profiles with pagination
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of records per page
+ *     responses:
+ *       200:
+ *         description: Recently added profiles retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 2
+ *                       firstName:
+ *                         type: string
+ *                         example: "Jane"
+ *                       lastName:
+ *                         type: string
+ *                         example: "Smith"
+ *                       age:
+ *                         type: integer
+ *                         example: 28
+ *                       height:
+ *                         type: integer
+ *                         example: 165
+ *                       currentCity:
+ *                         type: string
+ *                         example: "Mumbai"
+ *                       currentState:
+ *                         type: string
+ *                         example: "Maharashtra"
+ *                       education:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           degree:
+ *                             type: string
+ *                             example: "Bachelor of Engineering"
+ *                           college:
+ *                             type: string
+ *                             example: "IIT Bombay"
+ *                           specialization:
+ *                             type: string
+ *                             example: "Computer Science"
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     totalRecords:
+ *                       type: integer
+ *                       example: 47
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/me/recently-added', authGuard, uc.getRecentlyAddedProfiles);
+
+/**
+ * @swagger
+ * /v1/user/me/preference-matches:
+ *   get:
+ *     summary: Get preference match user profiles with pagination
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of records per page
+ *     responses:
+ *       200:
+ *         description: Preference match profiles retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 2
+ *                       firstName:
+ *                         type: string
+ *                         example: "Jane"
+ *                       lastName:
+ *                         type: string
+ *                         example: "Smith"
+ *                       age:
+ *                         type: integer
+ *                         example: 28
+ *                       height:
+ *                         type: integer
+ *                         example: 165
+ *                       currentCity:
+ *                         type: string
+ *                         example: "Mumbai"
+ *                       currentState:
+ *                         type: string
+ *                         example: "Maharashtra"
+ *                       education:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           degree:
+ *                             type: string
+ *                             example: "Bachelor of Engineering"
+ *                           college:
+ *                             type: string
+ *                             example: "IIT Bombay"
+ *                           specialization:
+ *                             type: string
+ *                             example: "Computer Science"
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     totalRecords:
+ *                       type: integer
+ *                       example: 47
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/me/preference-matches', authGuard, uc.getPreferenceMatchProfiles);
+
+/**
+ * @swagger
+ * /v1/user/me/same-city:
+ *   get:
+ *     summary: Get same city user profiles with pagination
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of records per page
+ *     responses:
+ *       200:
+ *         description: Same city profiles retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 2
+ *                       firstName:
+ *                         type: string
+ *                         example: "Jane"
+ *                       lastName:
+ *                         type: string
+ *                         example: "Smith"
+ *                       age:
+ *                         type: integer
+ *                         example: 28
+ *                       height:
+ *                         type: integer
+ *                         example: 165
+ *                       currentCity:
+ *                         type: string
+ *                         example: "Mumbai"
+ *                       currentState:
+ *                         type: string
+ *                         example: "Maharashtra"
+ *                       education:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           degree:
+ *                             type: string
+ *                             example: "Bachelor of Engineering"
+ *                           college:
+ *                             type: string
+ *                             example: "IIT Bombay"
+ *                           specialization:
+ *                             type: string
+ *                             example: "Computer Science"
+ *                       photo:
+ *                         type: string
+ *                         nullable: true
+ *                         example: null
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       example: 1
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                     totalRecords:
+ *                       type: integer
+ *                       example: 47
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/me/same-city', authGuard, uc.getSameCityProfiles);
 
 export default router;

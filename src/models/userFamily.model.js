@@ -1,0 +1,53 @@
+import { DataTypes, Model } from 'sequelize';
+
+export default class UserFamily extends Model {
+  static init(sequelize) {
+    return super.init(
+      {
+        userId: {
+          type: DataTypes.BIGINT,
+          primaryKey: true,
+          field: 'user_id'
+        },
+        fatherName: {
+          type: DataTypes.TEXT,
+          field: 'father_name'
+        },
+        fatherOccupationType: {
+          type: DataTypes.TEXT,
+          field: 'father_occupation_type'
+        },
+        fatherCompanyOrBusiness: {
+          type: DataTypes.TEXT,
+          field: 'father_company_or_business'
+        },
+        motherName: {
+          type: DataTypes.TEXT,
+          field: 'mother_name'
+        },
+        motherOccupationType: {
+          type: DataTypes.TEXT,
+          field: 'mother_occupation_type'
+        },
+        familyType: {
+          type: DataTypes.TEXT,
+          field: 'family_type'
+        },
+        familyNativePlace: {
+          type: DataTypes.TEXT,
+          field: 'family_native_place'
+        }
+      },
+      {
+        sequelize,
+        tableName: 'user_family',
+        timestamps: false,
+        underscored: true
+      }
+    );
+  }
+
+  static associate(models) {
+    this.belongsTo(models.User, { foreignKey: 'user_id' });
+  }
+}

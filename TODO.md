@@ -1,5 +1,5 @@
-# TODO List for User Address Modifications
+# TODO: Create Sequelize Model for user_profession Table
 
-- [x] Update `src/models/userAddress.model.js`: Change `addressType` to ENUM with values ['present', 'permanent', 'both']
-- [ ] Update `src/modules/profile/profile.service.js`: Modify `updateProfile` to handle `payload.address` as object with `present` and `permanent` sub-objects, create/update addresses accordingly
-- [ ] Update `src/modules/profile/profile.controller.js`: In `getProfileCompletion`, find all addresses for the user and check if any exist
+- [x] Create src/models/userProfession.model.js with Sequelize model definition
+- [x] Edit src/models/index.js to import and initialize UserProfession model
+- [x] Edit src/models/user.model.js to add hasOne association to UserProfession

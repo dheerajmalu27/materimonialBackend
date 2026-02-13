@@ -5,7 +5,7 @@ import PartnerPreference from '../../models/partnerPreference.model.js';
 import UserKundli from '../../models/userKundli.model.js';
 import { matchKundli } from '../../utils/kundliMatcher.js';
 import { calculateAge } from '../../utils/age.js';
-export const getMatchSuggestions = async (userId,gender) => {
+export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null) => {
   try {
     // 1️⃣ Get partner preference
     const preference = await PartnerPreference.findOne({
@@ -16,13 +16,21 @@ export const getMatchSuggestions = async (userId,gender) => {
       throw new Error('Partner preferences not set');
     }
 
-    // 2️⃣ Fetch candidates
+    // 2️⃣ Build where conditions for candidates
+    const candidateWhere = {
+      id: { [Op.ne]: userId },
+      isActive: true,
+      gender: { [Op.ne]: gender },
+    };
+
+    // Add city filter if provided
+    if (city) {
+      candidateWhere['$profile.city$'] = city;
+    }
+
+    // 3️⃣ Fetch candidates with profile and kundli
     const candidates = await User.findAll({
-      where: {
-        id: { [Op.ne]: userId },
-        isActive: true,
-        gender: { [Op.ne]: gender },
-      },
+      where: candidateWhere,
       include: [
         {
           model: UserProfile,
@@ -37,15 +45,16 @@ export const getMatchSuggestions = async (userId,gender) => {
     });
 
     const matches = [];
-   
-    // 3️⃣ Loop through candidates
+
+    // 4️⃣ Loop through candidates and calculate scores
     for (const candidate of candidates) {
       let score = 0;
 
       const profile = candidate.profile;
-     
+
       if (!profile) continue;
       const age = calculateAge(profile.dob);
+
       // 🎂 Age (25)
       if (
         age !== null &&
@@ -92,7 +101,7 @@ export const getMatchSuggestions = async (userId,gender) => {
       ) {
         score += 10;
       }
-      console.log(profile);
+
       // 🗣 Mother Tongue (5)
       if (
         preference.motherTongue &&
@@ -108,14 +117,14 @@ export const getMatchSuggestions = async (userId,gender) => {
         });
 
         const candidateKundli = candidate.kundli;
-        
+
         if (!userKundli || !candidateKundli) continue;
 
         const kundliResult = matchKundli(
           userKundli,
           candidateKundli
         );
-       
+
         if (!kundliResult.allowed) continue;
 
         score += 10;
@@ -123,16 +132,43 @@ export const getMatchSuggestions = async (userId,gender) => {
 
       // ✅ Minimum score threshold
       if (score >= 10) {
+        // Convert height to feet and inches
+        const heightInFeet = profile.heightCm ? `${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}\"` : '';
+
         matches.push({
-          userId: candidate.id,
-          name: `${profile.firstName} ${profile.lastName}`,
-          score
+          id: `${candidate.id}`,
+          name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
+          age: age || 0,
+          location: `${profile.city || ''}, ${profile.state || ''}`.trim().replace(/^,|,$/g, ''),
+          occupation: profile.occupation || '',
+          bio: profile.aboutMe || '',
+          religion: profile.religion || '',
+          caste: profile.caste || '',
+          height: heightInFeet,
+          education: profile.education || '',
+          profileImage: profile.profileImage || '',
+          compatibilityScore: score,
+          isVerified: candidate.isVerified || false,
+          lastActive: candidate.updatedAt ? candidate.updatedAt.toISOString() : null
         });
       }
     }
 
-    // 4️⃣ Sort by score DESC
-    return matches.sort((a, b) => b.score - a.score);
+    // 5️⃣ Sort by score DESC
+    matches.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+
+    // 6️⃣ Calculate total count and hasMore
+    const totalCount = matches.length;
+    const hasMore = totalCount > offset + limit;
+
+    // 7️⃣ Apply pagination
+    const paginatedMatches = matches.slice(offset, offset + limit);
+
+    return {
+      matches: paginatedMatches,
+      totalCount,
+      hasMore
+    };
   } catch (error) {
     console.error('MATCH SUGGESTION ERROR 👉', error);
     throw error;

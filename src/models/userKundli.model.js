@@ -15,7 +15,12 @@ export default class UserKundli extends Model {
         birthPlace: DataTypes.STRING,
         moonSign: DataTypes.STRING,
         nakshatra: DataTypes.STRING,
-        manglik: DataTypes.BOOLEAN
+        manglik: DataTypes.BOOLEAN,
+        gotra: DataTypes.STRING,
+        rashi: DataTypes.STRING,
+        charan: DataTypes.INTEGER,
+        gan: DataTypes.STRING,
+        nadi: DataTypes.STRING
       },
       {
         sequelize,

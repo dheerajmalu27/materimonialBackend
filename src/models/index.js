@@ -5,6 +5,9 @@ import User from './user.model.js';
 import UserProfile from './userProfile.model.js';
 import UserAddress from './userAddress.model.js';
 import UserEducation from './userEducation.model.js';
+import UserFamily from './userFamily.model.js';
+import UserLifestyle from './userLifestyle.model.js';
+import UserProfession from './userProfession.model.js';
 import BlockedUser from './blockedUser.model.js';
 import SubscriptionPlan from './subscriptionPlan.model.js';
 import UserKundli from './userKundli.model.js';
@@ -26,7 +29,10 @@ const models = {
   BlockedUser: BlockedUser.init(sequelize),
   SubscriptionPlan: SubscriptionPlan.init(sequelize),
   UserKundli: UserKundli.init(sequelize),
+  UserLifestyle: UserLifestyle.init(sequelize),
+  UserFamily: UserFamily.init(sequelize),
   PartnerPreference: PartnerPreference.init(sequelize),
+  UserProfession: UserProfession.init(sequelize),
   UserActivity: UserActivity.init(sequelize),
   UserOtp: UserOtp.init(sequelize),
   Interest: Interest.init(sequelize),

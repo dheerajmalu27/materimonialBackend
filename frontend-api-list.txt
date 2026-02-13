@@ -1,0 +1,38 @@
+# Frontend Application API Endpoints - Full Paths
+
+## Authentication APIs
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/refresh
+
+## User Profile APIs
+GET /api/users/profile
+PUT /api/users/profile
+GET /api/users/{userId}/profile
+
+## Matching APIs
+GET /api/matches/potential
+POST /api/matches/{userId}/like
+POST /api/matches/{userId}/dislike
+GET /api/matches
+
+## Messaging APIs
+GET /api/messages/conversations
+GET /api/messages/conversations/{conversationId}
+POST /api/messages/conversations/{conversationId}
+
+## Settings APIs
+GET /api/users/settings
+PUT /api/users/settings
+
+## Connection Request APIs
+POST /api/requests/send/{userId}
+GET /api/requests/sent
+GET /api/requests/received
+POST /api/requests/{requestId}/accept
+POST /api/requests/{requestId}/decline
+
+## Total: 21 API Endpoints
+
+Note: Replace {userId}, {conversationId}, {requestId} with actual IDs in your frontend requests.
