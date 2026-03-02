@@ -18,7 +18,7 @@ export default class Interest extends Model {
           field: 'receiver_id'
         },
         status: {
-          type: DataTypes.ENUM('pending', 'accepted', 'declined'),
+          type: DataTypes.ENUM('pending', 'accepted', 'rejected', 'sent'),
           defaultValue: 'pending'
         },
         message: {

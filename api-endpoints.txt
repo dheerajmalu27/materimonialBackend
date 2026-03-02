@@ -33,4 +33,9 @@ GET /api/requests/received
 POST /api/requests/{requestId}/accept
 POST /api/requests/{requestId}/decline
 
-## Total: 21 APIs
+## Monetization APIs
+GET /api/monetization/config
+POST /api/monetization/payments/razorpay/order
+POST /api/monetization/payments/razorpay/verify
+
+## Total: 24 APIs

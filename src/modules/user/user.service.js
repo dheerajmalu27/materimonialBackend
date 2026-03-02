@@ -9,7 +9,34 @@ import UserFamily from '../../models/userFamily.model.js';
 import UserKundli from '../../models/userKundli.model.js'
 import PartnerPreference from '../../models/partnerPreference.model.js';
 import { calculateAge } from '../../utils/age.js';
+import { sequelize } from '../../models/index.js';
 import { Op } from 'sequelize';
+import { buildProfileObject, getMutualInterests, getInterestStatus, calculateDistance } from '../../utils/profileFormatter.js';
+
+const reseedIdSequence = async (tableName, idColumn = 'id') => {
+  const quotedTable = `public."${tableName}"`;
+  const quotedColumn = `"${idColumn}"`;
+  await sequelize.query(
+    `SELECT setval(pg_get_serial_sequence('${quotedTable}', '${idColumn}'), COALESCE(MAX(${quotedColumn}), 0) + 1, false) FROM ${quotedTable};`
+  );
+};
+
+const bulkCreateWithSequenceRecovery = async (model, rows, tableName) => {
+  try {
+    await model.bulkCreate(rows);
+  } catch (error) {
+    const isIdUniqueViolation =
+      error?.name === 'SequelizeUniqueConstraintError' &&
+      (error?.fields?.id !== undefined || error?.original?.constraint?.toLowerCase().includes('_pkey'));
+
+    if (!isIdUniqueViolation) {
+      throw error;
+    }
+
+    await reseedIdSequence(tableName, 'id');
+    await model.bulkCreate(rows);
+  }
+};
 
 /* ADMIN / PUBLIC */
 export const getUserById = async (id) => {
@@ -38,12 +65,51 @@ export const getMyProfile = async (userId) => {
 
 export const updateMyProfile = async (userId, data) => {
   try {
+    const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
+    const normalizeDateOnly = (value) => {
+      if (!hasValue(value)) return null;
+      const raw = String(value).trim().replace(/\//g, '-');
+      const match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (!match) return null;
+      const yyyy = match[1];
+      const mm = String(parseInt(match[2], 10)).padStart(2, '0');
+      const dd = String(parseInt(match[3], 10)).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    const parseManglik = (value) => {
+      if (value === undefined || value === null || value === '') return null;
+      if (typeof value === 'boolean') return value;
+      const normalized = String(value).trim().toLowerCase();
+      if (['yes', 'true', '1'].includes(normalized)) return true;
+      if (['no', 'false', '0'].includes(normalized)) return false;
+      return null;
+    };
+    const normalizedMobile = hasValue(data.mobile)
+      ? data.mobile
+      : hasValue(data.phone)
+        ? data.phone
+        : hasValue(data?.personal?.phone)
+          ? data.personal.phone
+          : null;
+    const normalizedIncome = hasValue(data?.professional?.annualIncome)
+      ? data.professional.annualIncome
+      : hasValue(data.income)
+        ? data.income
+        : hasValue(data?.personal?.income)
+          ? data.personal.income
+          : null;
+
     // Update UserProfile with personal, religion data
     const profileData = {};
     if (data.personal) {
       profileData.firstName = data.personal.firstName;
       profileData.lastName = data.personal.lastName;
-      profileData.dob = data.personal.dateOfBirth;
+      if (data.personal.dateOfBirth) {
+        const normalizedDob = normalizeDateOnly(data.personal.dateOfBirth);
+        if (normalizedDob) {
+          profileData.dob = normalizedDob;
+        }
+      }
       profileData.birthTime = data.personal.birthTime;
       profileData.heightCm = data.personal.heightCm;
       profileData.weightKg = data.personal.weightKg;
@@ -51,7 +117,25 @@ export const updateMyProfile = async (userId, data) => {
       profileData.motherTongue = data.personal.motherTongue;
       profileData.aboutMe = data.personal.aboutMe;
       profileData.profileImage = data.personal.profileImage;
+      // support multiple images list
+      if (data.personal.profileImages) {
+        profileData.profileImages = Array.isArray(data.personal.profileImages)
+          ? JSON.stringify(data.personal.profileImages)
+          : data.personal.profileImages;
+      }
+
+      if (hasValue(data.personal.occupation)) {
+        profileData.occupation = data.personal.occupation;
+      }
     }
+
+    if (hasValue(normalizedMobile)) {
+      profileData.phone = normalizedMobile;
+    }
+    if (hasValue(normalizedIncome)) {
+      profileData.income = normalizedIncome;
+    }
+
     if (data.religion) {
       profileData.religion = data.religion.religion;
       profileData.caste = data.religion.caste;
@@ -63,16 +147,33 @@ export const updateMyProfile = async (userId, data) => {
       await UserProfile.upsert({ userId, ...profileData }, { returning: false });
     }
 
-    // Update UserProfession
-    if (data.professional) {
-      const professionData = {
-        userId,
-        occupationType: data.professional.occupation,
-        annualIncome: data.professional.annualIncome,
-        workingCountry: data.professional.workLocation,
-        companyOrBusiness: data.professional.employer
-      };
+    // Update UserProfession (sync annualIncome with profile.income)
+    if (data.professional || hasValue(normalizedIncome)) {
+      const professionData = { userId };
+      if (hasValue(data?.professional?.occupation)) {
+        professionData.occupationType = data.professional.occupation;
+      }
+      if (hasValue(normalizedIncome)) {
+        professionData.annualIncome = normalizedIncome;
+      }
+      if (hasValue(data?.professional?.workLocation)) {
+        professionData.workingCountry = data.professional.workLocation;
+      }
+      if (hasValue(data?.professional?.employer)) {
+        professionData.companyOrBusiness = data.professional.employer;
+      }
+
       await UserProfession.upsert(professionData, { returning: false });
+    }
+
+    // Update top-level user fields like mobile/email (sync mobile with profile.phone)
+    if (hasValue(normalizedMobile) || hasValue(data.email)) {
+      const user = await User.findByPk(userId);
+      if (user) {
+        if (hasValue(normalizedMobile)) user.mobile = normalizedMobile;
+        if (hasValue(data.email)) user.email = data.email;
+        await user.save();
+      }
     }
 
     // Update UserFamily
@@ -80,10 +181,11 @@ export const updateMyProfile = async (userId, data) => {
       const familyData = {
         userId,
         fatherName: data.family.fatherName,
-        fatherOccupationType: data.family.fatherOccupation,
+        fatherOccupation: data.family.fatherOccupation,
         motherName: data.family.motherName,
-        motherOccupationType: data.family.motherOccupation,
+        motherOccupation: data.family.motherOccupation,
         familyType: data.family.familyType,
+        siblings: data.family.siblings,
         familyValues: data.family.familyValues,
         familyStatus: data.family.familyStatus
       };
@@ -115,7 +217,7 @@ export const updateMyProfile = async (userId, data) => {
         pincode: addr.pincode
       }));
       if (addressInserts.length > 0) {
-        await UserAddress.bulkCreate(addressInserts);
+        await bulkCreateWithSequenceRecovery(UserAddress, addressInserts, 'user_addresses');
       }
     }
 
@@ -131,19 +233,20 @@ export const updateMyProfile = async (userId, data) => {
         highest: edu.highest || false
       }));
       if (educationInserts.length > 0) {
-        await UserEducation.bulkCreate(educationInserts);
+        await bulkCreateWithSequenceRecovery(UserEducation, educationInserts, 'user_education');
       }
     }
 
     // Update UserKundli
     if (data.kundli) {
+      const normalizedKundliDob = normalizeDateOnly(data?.personal?.dateOfBirth);
       const kundliData = {
         userId,
-        dob: data.personal.dateOfBirth|| null,
+        dob: normalizedKundliDob || null,
         birthPlace: data.kundli.birthPlace || null,
         birthTime: data.kundli.birthTime || null,
         nakshatra: data.kundli.nakshatra || null,
-        manglik: data.kundli.manglik === '' || data.kundli.manglik === null ? false : Boolean(data.kundli.manglik),
+        manglik: parseManglik(data.kundli.manglik),
         gotra: data.kundli.gotra || null,
         rashi: data.kundli.rashi || null,
         charan: data.kundli.charan === '' || data.kundli.charan === null ? 0 : parseInt(data.kundli.charan, 10),
@@ -616,6 +719,16 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
         model: UserEducation,
         as: 'education',
         required: false
+      },
+      {
+        model: UserFamily,
+        as: 'family',
+        required: false
+      },
+      {
+        model: UserLifestyle,
+        as: 'lifestyle',
+        required: false
       }
     ],
     order: [['createdAt', 'DESC']],
@@ -623,27 +736,36 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
     offset
   });
 
-  const matches = rows.map(user => {
+  const matches = [];
+
+  for (const user of rows) {
     const profile = user.profile;
     const presentAddr = user.addresses.find(addr => addr.addressType === 'present' ||addr.addressType === 'permanent'|| addr.addressType === 'both');
-    const education = user.education?.[0];
+    const family = user.family;
+    const lifestyle = user.lifestyle;
+    const age = calculateAge(profile.dob);
+    
+    // Get interest data for same-city users
+    const mutualInterests = await getMutualInterests(userId, user.id);
+    const interestStatus = await getInterestStatus(userId, user.id);
+    const distance = await calculateDistance(userId, user.id, user.addresses);
 
-    return {
-      id: `${user.id}`,
-      name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
-      age: calculateAge(profile.dob) || 0,
-      location: `${presentAddr?.city || ''}, ${presentAddr?.state || ''}`.trim().replace(/^,|,$/g, ''),
-      occupation: profile.occupation || '',
-      bio: profile.aboutMe || '',
-      religion: profile.religion || '',
-      caste: profile.caste || '',
-      height: profile.heightCm ? `${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}\"` : '',
-      education: education?.highestDegree || '',
-      profileImage: profile.profileImage || '',
-      isVerified: user.isVerified || false,
-      lastActive: user.updatedAt ? user.updatedAt.toISOString() : null
-    };
-  });
+    // Build standardized profile object with all enhanced fields
+    const profileObject = buildProfileObject({
+      user: user,
+      profile: profile,
+      family: family,
+      lifestyle: lifestyle,
+      compatibilityScore: 0, // Same-city doesn't have compatibility scoring like potential matches
+      distance: distance,
+      mutualInterests: mutualInterests,
+      profileViews: 0, // Can be calculated with subquery if needed
+      interestStatus: interestStatus,
+      age: age
+    });
+
+    matches.push(profileObject);
+  }
 
   const totalCount = count;
   const hasMore = totalCount > offset + limit;
@@ -687,6 +809,11 @@ export const getUserProfileById = async (userId) => {
       {
         model: UserFamily,
         as: 'family',
+        required: false
+      },
+      {
+        model: UserKundli,
+        as: 'kundli',
         required: false
       },
       {

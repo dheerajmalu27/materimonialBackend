@@ -10,9 +10,10 @@ export const partnerPreferenceSchema = Joi.object({
   religion: Joi.string().max(50).optional(),
   caste: Joi.string().max(50).optional(),
   education: Joi.string().max(100).optional(),
+  occupation: Joi.string().max(100).optional(),
+  incomeRange: Joi.string().max(100).optional(),
 
-  city: Joi.string().max(100).optional(),
-  state: Joi.string().max(100).optional(),
+  location: Joi.string().max(200).optional(),
   motherTongue: Joi.string().max(50).optional(),
 
   kundliMatchRequired: Joi.boolean().optional(),

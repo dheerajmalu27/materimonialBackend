@@ -1,13 +1,21 @@
 import Interest from '../../models/interest.model.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../../config/database.js';
+import { enforceInterestQuota } from '../monetization/monetization.service.js';
 
 export const sendInterest = async (senderId, receiverId) => {
-  return Interest.create({
+  const quota = await enforceInterestQuota(senderId);
+
+  const interest = await Interest.create({
     senderId,
     receiverId,
     status: 'sent'
   });
+
+  return {
+    interest,
+    quota
+  };
 };
 
 export const updateInterestStatus = async (senderId, receiverId, status) => {

@@ -58,7 +58,8 @@ export const registerUser = async (payload) => {
         dob: dob || null,
         birthTime: birthTime || null,
         heightCm: heightCm || null,
-        weightKg: weightKg || null
+        weightKg: weightKg || null,
+        phone: mobile || null
       },
       { transaction: t }
     );
@@ -89,6 +90,7 @@ export const loginUser = async ({ email, password }) => {
     id: user.id,
     email: user.email,
     gender: user.gender,
+    mobile: user.mobile,
   });
 
   return {

@@ -19,7 +19,7 @@ export default class UserProfession extends Model {
           field: 'company_or_business'
         },
         annualIncome: {
-          type: DataTypes.DECIMAL(10, 2),
+          type: DataTypes.STRING,
           field: 'annual_income'
         },
         currency: DataTypes.TEXT,

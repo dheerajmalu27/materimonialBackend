@@ -83,3 +83,22 @@ export const dislikeProfile = async (req, res) => {
     });
   }
 };
+
+export const getMatchDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const profileUserId = req.params.userId;
+
+    const matchDetails = await matchService.getMatchDetails(userId, profileUserId);
+
+    return res.json({
+      success: true,
+      data: matchDetails
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

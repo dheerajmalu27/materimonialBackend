@@ -32,9 +32,14 @@ export default class PartnerPreference extends Model {
         religion: DataTypes.STRING,
         caste: DataTypes.STRING,
         education: DataTypes.STRING,
+        occupation: DataTypes.STRING,
 
-        city: DataTypes.STRING,
-        state: DataTypes.STRING,
+        location: DataTypes.STRING,
+         incomeRange: {
+          type: DataTypes.STRING,
+          field: 'income_range'
+        },
+
         motherTongue: {
           type: DataTypes.STRING,
           field: 'mother_tongue'

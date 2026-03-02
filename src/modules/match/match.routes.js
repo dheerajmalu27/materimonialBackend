@@ -1,6 +1,7 @@
 import express from 'express';
 import { authGuard } from '../../middlewares/auth.middleware.js';
-import { getMatches, getPotentialMatches } from './match.controller.js';
+import { getMatches, getPotentialMatches, getMatchDetails } from './match.controller.js';
+import { requireMonetizationFeature } from '../../middlewares/monetization.middleware.js';
 
 const router = express.Router();
 
@@ -103,6 +104,72 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/potential', authGuard, getPotentialMatches);
+router.get('/potential', authGuard, requireMonetizationFeature('basicSearch'), getPotentialMatches);
+
+/**
+ * @swagger
+ * /v1/matches/details/{userId}:
+ *   get:
+ *     summary: Get match details for a specific profile comparing with user's partner preferences
+ *     tags: [Match]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The profile user ID to get match details for
+ *         example: 123
+ *     responses:
+ *       200:
+ *         description: Match details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     matchDetails:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           criteria:
+ *                             type: string
+ *                             example: "Age"
+ *                           icon:
+ *                             type: string
+ *                             example: "🎂"
+ *                           points:
+ *                             type: integer
+ *                             example: 25
+ *                           matched:
+ *                             type: boolean
+ *                             example: true
+ *                           yourPreference:
+ *                             type: string
+ *                             example: "25 - 35 years"
+ *                           theirValue:
+ *                             type: string
+ *                             example: "28 years"
+ *                     totalScore:
+ *                       type: integer
+ *                       example: 75
+ *                     matchPercentage:
+ *                       type: integer
+ *                       example: 75
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/details/:userId', authGuard, getMatchDetails);
 
 export default router;

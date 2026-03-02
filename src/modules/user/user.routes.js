@@ -1,6 +1,37 @@
 import express from 'express';
 import * as uc from './user.controller.js';
 import { authGuard } from '../../middlewares/auth.middleware.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// multer storage configuration - create user-specific folder
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const userId = req.user?.id || 'public';
+    const uploadPath = path.join(process.cwd(), 'uploads', String(userId));
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}${ext}`);
+  }
+});
+
+// only allow image files
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif/;
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.test(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  }
+});
 
 const router = express.Router();
 
@@ -414,6 +445,54 @@ router.get('/me/profile', authGuard, uc.getMyProfile);
  *         description: Internal server error
  */
 router.put('/me/profile', authGuard, uc.updateMyProfile);
+
+/**
+ * @swagger
+ * /v1/user/me/photos:
+ *   post:
+ *     summary: Upload one or more profile photos
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Photos uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 urls:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["https://example.com/uploads/1/162342345.jpg"]
+ *                 profileImage:
+ *                   type: string
+ *                   example: "https://example.com/uploads/1/162342345.jpg"
+ *       400:
+ *         description: No files uploaded
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/me/photos', authGuard, upload.array('photos', 6), uc.uploadProfilePhotos);
 
 /**
  * @swagger

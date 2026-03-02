@@ -1,8 +1,28 @@
 import * as service from './interest.service.js';
 
 export const send = async (req, res) => {
-  await service.sendInterest(req.user.id, req.body.receiverId);
-  res.json({ success: true });
+  try {
+    const result = await service.sendInterest(req.user.id, req.body.receiverId);
+    res.json({
+      success: true,
+      data: {
+        interest: result.interest,
+        usage: {
+          usedToday: result.quota.usedToday + 1,
+          dailyLimit: result.quota.dailyLimit,
+          remainingToday: result.quota.remainingToday === null ? null : Math.max(0, result.quota.remainingToday - 1),
+          activePlan: result.quota.activePlan,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({
+      success: false,
+      message: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.meta ? { data: error.meta } : {}),
+    });
+  }
 };
 
 export const accept = async (req, res) => {

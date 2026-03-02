@@ -4,6 +4,7 @@ import * as chat from './chat.controller.js';
 import * as chatValidation from './chat.validation.js';
 import {authGuard} from '../../middlewares/auth.middleware.js';
 import {validate} from '../../middlewares/validate.middleware.js';
+import { requireMonetizationFeature } from '../../middlewares/monetization.middleware.js';
 
 const router = express.Router();
 /**
@@ -94,7 +95,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.post('/conversations', authGuard, validate(chatValidation.createConversationSchema), chat.createConversation);
+router.post('/conversations', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.createConversationSchema), chat.createConversation);
 
 /**
  * @swagger
@@ -169,7 +170,7 @@ router.post('/conversations', authGuard, validate(chatValidation.createConversat
  *       500:
  *         description: Internal server error
  */
-router.get('/conversations', authGuard, chat.getConversations);
+router.get('/conversations', authGuard, requireMonetizationFeature('basicMessaging'), chat.getConversations);
 
 /**
  * @swagger
@@ -219,10 +220,10 @@ router.get('/conversations', authGuard, chat.getConversations);
  *       500:
  *         description: Internal server error
  */
-router.get('/chat/conversations/:id', authGuard, validate(chatValidation.getConversationSchema), chat.getConversation);
-router.delete('/conversations/:id', authGuard, validate(chatValidation.deleteConversationSchema), chat.deleteConversation);
+router.get('/chat/conversations/:id', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.getConversationSchema), chat.getConversation);
+router.delete('/conversations/:id', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.deleteConversationSchema), chat.deleteConversation);
 
-router.post('/messages', authGuard, validate(chatValidation.sendMessageSchema), chat.sendMessage);
+router.post('/messages', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.sendMessageSchema), chat.sendMessage);
 
 /**
  * @swagger

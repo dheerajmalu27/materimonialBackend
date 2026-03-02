@@ -1,10 +1,23 @@
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import User from '../../models/user.model.js';
 import UserProfile from '../../models/userProfile.model.js';
 import PartnerPreference from '../../models/partnerPreference.model.js';
 import UserKundli from '../../models/userKundli.model.js';
+import UserAddress from '../../models/userAddress.model.js';
+import UserFamily from '../../models/userFamily.model.js';
+import UserLifestyle from '../../models/userLifestyle.model.js';
+import Interest from '../../models/interest.model.js';
+import ProfileView from '../../models/profileView.model.js';
 import { matchKundli } from '../../utils/kundliMatcher.js';
 import { calculateAge } from '../../utils/age.js';
+import {
+  calculateProfileCompletion,
+  getMutualInterests,
+  getInterestStatus,
+  calculateDistance,
+  buildProfileObject
+} from '../../utils/profileFormatter.js';
+
 export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null) => {
   try {
     // 1️⃣ Get partner preference
@@ -28,7 +41,7 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
       candidateWhere['$profile.city$'] = city;
     }
 
-    // 3️⃣ Fetch candidates with profile and kundli
+    // 3️⃣ Fetch candidates with profile, kundli and additional data
     const candidates = await User.findAll({
       where: candidateWhere,
       include: [
@@ -40,8 +53,39 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
           model: UserKundli,
           as: 'kundli',
           required: false
+        },
+        {
+          model: UserAddress,
+          as: 'addresses',
+          required: false,
+          where: {
+            addressType: { [Op.in]: ['present', 'both'] }
+          }
+        },
+        {
+          model: UserFamily,
+          as: 'family',
+          required: false
+        },
+        {
+          model: UserLifestyle,
+          as: 'lifestyle',
+          required: false
         }
-      ]
+      ],
+      attributes: {
+        include: [
+          // Profile view count
+          [
+            literal(`(
+              SELECT COUNT(*)
+              FROM profile_views pv
+              WHERE pv.viewed_user_id = "User"."id"
+            )`),
+            'profileViews'
+          ]
+        ]
+      }
     });
 
     const matches = [];
@@ -94,6 +138,15 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
         score += 15;
       }
 
+      // 💼 Occupation (15) - NEW - check if candidate's occupation matches preference
+      if (
+        preference.occupation &&
+        profile.occupation &&
+        profile.occupation.toLowerCase().includes(preference.occupation.toLowerCase())
+      ) {
+        score += 15;
+      }
+
       // 📍 Location (10)
       if (
         (preference.city && profile.city === preference.city) ||
@@ -132,25 +185,35 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
 
       // ✅ Minimum score threshold
       if (score >= 10) {
-        // Convert height to feet and inches
-        const heightInFeet = profile.heightCm ? `${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}\"` : '';
+        // Get additional data
+        const family = candidate.family;
+        const lifestyle = candidate.lifestyle;
+        const addresses = candidate.addresses || [];
 
-        matches.push({
-          id: `${candidate.id}`,
-          name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim(),
-          age: age || 0,
-          location: `${profile.city || ''}, ${profile.state || ''}`.trim().replace(/^,|,$/g, ''),
-          occupation: profile.occupation || '',
-          bio: profile.aboutMe || '',
-          religion: profile.religion || '',
-          caste: profile.caste || '',
-          height: heightInFeet,
-          education: profile.education || '',
-          profileImage: profile.profileImage || '',
+        // Get mutual interests
+        const mutualInterests = await getMutualInterests(userId, candidate.id);
+
+        // Get interest status between logged-in user and candidate
+        const interestStatus = await getInterestStatus(userId, candidate.id);
+
+        // Calculate distance (simplified - using same city for now)
+        const distance = await calculateDistance(userId, candidate.id, addresses);
+
+        // Build standardized profile object
+        const profileObject = buildProfileObject({
+          user: candidate,
+          profile: profile,
+          family: family,
+          lifestyle: lifestyle,
           compatibilityScore: score,
-          isVerified: candidate.isVerified || false,
-          lastActive: candidate.updatedAt ? candidate.updatedAt.toISOString() : null
+          distance: distance,
+          mutualInterests: mutualInterests,
+          profileViews: candidate.dataValues?.profileViews || 0,
+          interestStatus: interestStatus,
+          age: age
         });
+
+        matches.push(profileObject);
       }
     }
 

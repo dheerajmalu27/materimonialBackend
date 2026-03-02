@@ -12,11 +12,18 @@ const app = express();
 
 // Middlewares
 app.use(cors());
-app.use(helmet());
+// Configure helmet but allow cross-origin resource loading (so /uploads can be fetched from LAN devices)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
+
+// serve uploaded files
+import path from 'path';
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Health check
 app.get('/', (req, res) => {

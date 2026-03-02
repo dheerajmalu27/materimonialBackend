@@ -10,6 +10,7 @@ import Chat from '../modules/chat/chat.routes.js'
 import blocksRoutes from '../modules/blocks/blocks.routes.js';
 import kundli from '../modules/kundli/kundli.routes.js';
 import masterRoutes from '../modules/master/master.routes.js';
+import monetizationRoutes from '../modules/monetization/monetization.routes.js';
 
 const router = Router();
 
@@ -25,6 +26,7 @@ router.use('/messages', Chat);
 router.use('/blocks', blocksRoutes);
 router.use('/kundli', kundli);
 router.use('/master', masterRoutes);
+router.use('/monetization', monetizationRoutes);
 
 // Example route
 router.get('/health', (req, res) => {

@@ -45,6 +45,28 @@ export default class UserProfile extends Model {
           type: DataTypes.STRING,
           field: 'profile_image'
         },
+        profileImages: {
+          type: DataTypes.TEXT,
+          field: 'profile_images',
+          // store array as JSON string in DB
+          get() {
+            const raw = this.getDataValue('profileImages');
+            if (!raw) return [];
+            try {
+              return JSON.parse(raw);
+            } catch (e) {
+              return [];
+            }
+          },
+          set(val) {
+            // accepts array or JSON string
+            if (Array.isArray(val)) {
+              this.setDataValue('profileImages', JSON.stringify(val));
+            } else {
+              this.setDataValue('profileImages', val);
+            }
+          }
+        },
         isOnline: {
           type: DataTypes.BOOLEAN,
           field: 'is_online',

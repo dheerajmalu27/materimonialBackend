@@ -13,9 +13,9 @@ export default class UserFamily extends Model {
           type: DataTypes.TEXT,
           field: 'father_name'
         },
-        fatherOccupationType: {
+        fatherOccupation: {
           type: DataTypes.TEXT,
-          field: 'father_occupation_type'
+          field: 'father_occupation'
         },
         fatherCompanyOrBusiness: {
           type: DataTypes.TEXT,
@@ -25,13 +25,25 @@ export default class UserFamily extends Model {
           type: DataTypes.TEXT,
           field: 'mother_name'
         },
-        motherOccupationType: {
+        motherOccupation: {
           type: DataTypes.TEXT,
-          field: 'mother_occupation_type'
+          field: 'mother_occupation'
         },
         familyType: {
           type: DataTypes.TEXT,
           field: 'family_type'
+        },
+        siblings: {
+          type: DataTypes.TEXT,
+          field: 'siblings'
+        },
+        familyValues: {
+          type: DataTypes.TEXT,
+          field: 'family_values'
+        },
+        familyStatus: {
+          type: DataTypes.TEXT,
+          field: 'family_status'
         },
         familyNativePlace: {
           type: DataTypes.TEXT,
