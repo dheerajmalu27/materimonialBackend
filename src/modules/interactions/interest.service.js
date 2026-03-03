@@ -54,14 +54,15 @@ export const getSentInterests = async (userId, limit = 20, offset = 0) => {
 
   // Format response according to specification
   const requests = interests.map(interest => ({
-    id: `req_${interest.id}`,
+    id: `${interest.id}`,
     recipient: {
-      id: `user_${interest.receiver_id}`,
+      id: `${interest.receiver_id}`,
       name: `${interest.receiver_first_name} ${interest.receiver_last_name}`,
       age: interest.receiver_age,
       location: `${interest.receiver_city || ''}, ${interest.receiver_state || ''}`.trim(),
       occupation: '', // TODO: Add occupation field
-      profileImage: interest.receiver_photo || null
+        height: interest.receiver_height || null,
+        profileImage: interest.receiver_photo || null
     },
     message: 'Hi, I found your profile interesting. Would like to connect.', // Default message
     timestamp: interest.created_at.toISOString(),
@@ -78,10 +79,35 @@ export const getSentInterests = async (userId, limit = 20, offset = 0) => {
   };
 };
 
-export const getReceivedInterests = async (userId) => {
-  console.log(userId)
+export const getReceivedInterests = async (userId, limit = 20, offset = 0) => {
+  const parsedLimit = Number.isFinite(limit) ? Math.max(1, limit) : 20;
+  const parsedOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
+
   const interests = await sequelize.query(
-    `SELECT id, status, created_at, sender_id, sender_first_name, sender_last_name, sender_age, sender_height, sender_education, sender_is_active, sender_city, sender_state, sender_photo
+    `SELECT id, status, created_at, sender_id, sender_first_name, sender_last_name, sender_age,
+         sender_height, sender_education, sender_city, sender_state, sender_photo,
+         up.location AS sender_profile_location,
+         up.religion AS sender_religion,
+         up.caste AS sender_caste,
+         up.height_cm AS sender_profile_height,
+         up.education AS sender_profile_education,
+         up.occupation AS sender_occupation,
+         up.about_me AS sender_bio,
+         up.profile_image AS sender_profile_image,
+         up.profile_images AS sender_profile_images
+       FROM public.interests_with_user_details i
+       LEFT JOIN public.user_profiles up ON up.user_id = i.sender_id
+       WHERE receiver_id = $1
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    {
+      bind: [userId, parsedLimit, parsedOffset],
+      type: sequelize.QueryTypes.SELECT
+    }
+  );
+
+  const totalCountResult = await sequelize.query(
+    `SELECT COUNT(*) as count
      FROM public.interests_with_user_details
      WHERE receiver_id = $1`,
     {
@@ -89,10 +115,75 @@ export const getReceivedInterests = async (userId) => {
       type: sequelize.QueryTypes.SELECT
     }
   );
-console.log(interests);
+
+  const totalCount = parseInt(totalCountResult[0].count, 10) || 0;
+
+  const matches = interests.map((interest) => {
+    let profileImages = [];
+    if (typeof interest.sender_profile_images === 'string' && interest.sender_profile_images.trim()) {
+      try {
+        const parsedImages = JSON.parse(interest.sender_profile_images);
+        if (Array.isArray(parsedImages)) {
+          profileImages = parsedImages.filter(Boolean).map((image) => String(image));
+        }
+      } catch (error) {
+        profileImages = [];
+      }
+    }
+
+    const city = String(interest.sender_city || '').trim();
+    const state = String(interest.sender_state || '').trim();
+    const cityStateLocation = `${city}${city && state ? ', ' : ''}${state}`.trim();
+    const profileLocation = String(interest.sender_profile_location || '').trim();
+    const location = profileLocation || cityStateLocation;
+    const firstName = String(interest.sender_first_name || '').trim();
+    const lastName = String(interest.sender_last_name || '').trim();
+    const displayName = `${firstName}${firstName && lastName ? ' ' : ''}${lastName}`.trim() || 'Unknown';
+    const profileImage = String(
+      interest.sender_profile_image
+      || (profileImages.length > 0 ? profileImages[0] : '')
+      || interest.sender_photo
+      || ''
+    );
+
+    return {
+      id: String(interest.sender_id),
+      name: displayName,
+      age: Number(interest.sender_age || 0),
+      location: location || null,
+      occupation: String(interest.sender_occupation || '').trim(),
+      bio: String(interest.sender_bio || '').trim(),
+      religion: String(interest.sender_religion || '').trim(),
+      caste: String(interest.sender_caste || '').trim(),
+      height: interest.sender_profile_height || interest.sender_height || null,
+      education: String(interest.sender_profile_education || interest.sender_education || '').trim(),
+      profileImages: profileImages.length > 0 ? profileImages : (profileImage ? [profileImage] : []),
+      profileImage,
+      compatibilityScore: 0,
+      isVerified: false,
+      lastActive: null,
+      distance: null,
+      mutualInterests: [],
+      profileViews: 0,
+      isOnline: false,
+      motherTongue: '',
+      interestStatus: interest.status,
+      interestIsSender: false,
+      interestId: String(interest.id),
+      requestId: `${interest.id}`,
+      timestamp: interest.created_at ? new Date(interest.created_at).toISOString() : null,
+      message: interest.message || 'Hi, I found your profile interesting. Would like to connect.'
+    };
+  });
+
   return {
     success: true,
-    data: interests
+    data: {
+      matches,
+      requests: matches,
+      totalCount,
+      hasMore: parsedOffset + parsedLimit < totalCount
+    }
   };
 };
 

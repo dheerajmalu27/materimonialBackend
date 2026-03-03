@@ -47,9 +47,24 @@ export const sent = async (req, res) => {
 };
 
 export const received = async (req, res) => {
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = parseInt(req.query.offset) || 0;
-  res.json(await service.getReceivedInterests(req.user.id, limit, offset));
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = parseInt(req.query.offset) || 0;
+    const result = await service.getReceivedInterests(req.user.id, limit, offset);
+
+    console.log(
+      '[GET /api/v1/interaction/requests/received] response:',
+      JSON.stringify(result, null, 2),
+    );
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch received requests',
+      ...(error?.message ? { error: error.message } : {})
+    });
+  }
 };
 
 export const mutual = async (req, res) => {

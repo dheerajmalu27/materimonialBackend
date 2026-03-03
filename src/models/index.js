@@ -19,6 +19,7 @@ import ProfileView from './profileView.model.js';
 import Shortlist from './shortlist.model.js';
 import Conversation from './conversation.model.js';
 import Message from './message.model.js';
+import UserPushToken from './userPushToken.model.js';
 
 // Initialize models
 const models = {
@@ -40,6 +41,7 @@ const models = {
   Shortlist: Shortlist.init(sequelize),
   Conversation: Conversation.init(sequelize),
   Message: Message.init(sequelize),
+  UserPushToken: UserPushToken.init(sequelize),
 };
 
 // Setup associations

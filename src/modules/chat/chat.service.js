@@ -85,7 +85,7 @@ export const getConversations = async (userId) => {
         return {
           id: `${conversation.id}`,
           participant: {
-            id: `{otherUser.id}`,
+            id: `${otherUser.id}`,
             name: `${otherUser.profile?.firstName || ''} ${otherUser.profile?.lastName || ''}`.trim() || 'Unknown',
             email: otherUser.email,
             mobile: otherUser.mobile,

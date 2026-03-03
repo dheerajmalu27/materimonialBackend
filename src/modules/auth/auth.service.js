@@ -8,6 +8,90 @@ import { generateOTP } from '../../utils/otp.js';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import UserOtp from '../../models/userOtp.model.js';
+
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_MAX_PER_HOUR = 5;
+
+const OTP_TYPES = {
+  MOBILE_VERIFICATION: 'MOBILE',
+  RESET_PASSWORD_EMAIL: 'RESET_PASSWORD_EMAIL',
+};
+
+const buildOtpError = (message, statusCode = 400, code = 'OTP_ERROR', meta = null) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  error.code = code;
+  if (meta) error.meta = meta;
+  return error;
+};
+
+const createOtpForType = async (userId, type) => {
+  const normalizedType = String(type || OTP_TYPES.MOBILE_VERIFICATION).toUpperCase();
+  const now = Date.now();
+
+  const latestOtp = await UserOtp.findOne({
+    where: {
+      userId,
+      type: normalizedType,
+    },
+    order: [['created_at', 'DESC']],
+  });
+
+  if (latestOtp) {
+    const lastSentAt = new Date(latestOtp.createdAt || latestOtp.created_at || 0).getTime();
+    const elapsed = now - lastSentAt;
+    if (elapsed < OTP_RESEND_COOLDOWN_MS) {
+      const retryAfterSec = Math.ceil((OTP_RESEND_COOLDOWN_MS - elapsed) / 1000);
+      throw buildOtpError(
+        `Please wait ${retryAfterSec}s before requesting another OTP`,
+        429,
+        'OTP_RESEND_TOO_SOON',
+        { retryAfterSec },
+      );
+    }
+  }
+
+  const oneHourAgo = new Date(now - (60 * 60 * 1000));
+  const sentInLastHour = await UserOtp.count({
+    where: {
+      userId,
+      type: normalizedType,
+      createdAt: { [Op.gte]: oneHourAgo },
+    },
+  });
+
+  if (sentInLastHour >= OTP_MAX_PER_HOUR) {
+    throw buildOtpError(
+      'OTP request limit reached. Please try again later.',
+      429,
+      'OTP_RATE_LIMIT_REACHED',
+      { maxPerHour: OTP_MAX_PER_HOUR },
+    );
+  }
+
+  await UserOtp.update(
+    { isUsed: true },
+    {
+      where: {
+        userId,
+        type: normalizedType,
+        isUsed: false,
+      },
+    },
+  );
+
+  const otp = generateOTP();
+  await UserOtp.create({
+    userId,
+    otp,
+    type: normalizedType,
+    expiresAt: new Date(now + OTP_TTL_MS),
+    isUsed: false,
+  });
+
+  return otp;
+};
 export const registerUser = async (payload) => {
   const {
     email,
@@ -118,37 +202,37 @@ export const refreshToken = async (token) => {
 
 /* SEND OTP */
 export const sendOtp = async (userId, type) => {
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-  await UserOtp.create({
-    userId,          // ✅ REQUIRED
-    otp,
-    type,            // ✅ REQUIRED (LOGIN / RESET_PASSWORD / VERIFY_EMAIL)
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000)
-  });
-
-
-  return otp; // send via SMS/Email
+  const otp = await createOtpForType(userId, type || OTP_TYPES.MOBILE_VERIFICATION);
+  return otp;
 };
 /* VERIFY OTP */
 export const verifyOtp = async (userId, otp, type) => {
+  const normalizedType = String(type || OTP_TYPES.MOBILE_VERIFICATION).toUpperCase();
   const record = await UserOtp.findOne({
     where: {
       userId,
-      otp,
-      type,
+      type: normalizedType,
       isUsed: false
-    }
+    },
+    order: [['created_at', 'DESC']],
   });
-console.log(record.expiresAt)
-  if (!record) throw new Error('Invalid OTP');
-   const now = Date.now(); // milliseconds
-  const expiresAt = new Date(record.expiresAt).getTime();
-  console.log(now)
-console.log(expiresAt);
-  if (expiresAt > now) {
-    throw new Error('OTP expired');
+
+  if (!record) {
+    throw buildOtpError('Invalid OTP', 400, 'OTP_INVALID');
   }
+
+  const now = Date.now();
+  const expiresAt = new Date(record.expiresAt).getTime();
+
+  if (now > expiresAt) {
+    await record.update({ isUsed: true });
+    throw buildOtpError('OTP expired', 400, 'OTP_EXPIRED');
+  }
+
+  if (String(record.otp) !== String(otp)) {
+    throw buildOtpError('Invalid OTP', 400, 'OTP_INVALID');
+  }
+
   record.isUsed = true;
   await record.save();
 
@@ -156,23 +240,39 @@ console.log(expiresAt);
 };
 
 /* FORGOT PASSWORD */
-export const forgotPassword = async (email,type) => {
+export const forgotPassword = async (email, type = 'EMAIL') => {
   const user = await User.findOne({ where: { email } });
-  if (!user) return;
-  const otp = generateOTP();
-  await UserOtp.create({
-    userId,          // ✅ REQUIRED
-    otp,
-    type,            // ✅ REQUIRED (LOGIN / RESET_PASSWORD / VERIFY_EMAIL)
-    expiresAt: new Date(Date.now() + 5 * 60 * 1000)
-  });
-  console.log('Reset OTP:', otp);
+  if (!user) {
+    return { sent: true };
+  }
+
+  const otpType = String(type).toUpperCase() === 'MOBILE'
+    ? 'RESET_PASSWORD_MOBILE'
+    : OTP_TYPES.RESET_PASSWORD_EMAIL;
+
+  const otp = await createOtpForType(user.id, otpType);
+
+  if (env.nodeEnv !== 'production') {
+    console.log('Reset OTP:', otp);
+  }
+
+  return { sent: true };
 };
 
 /* RESET PASSWORD */
 export const resetPassword = async (email, otp, password) => {
-  const user = await User.findOne({ where: { email, resetOtp: otp } });
-  if (!user) throw new Error('Invalid OTP');
+  const user = await User.findOne({ where: { email, isActive: true } });
+  if (!user) {
+    throw new Error('Invalid request');
+  }
+
+  await verifyOtp(user.id, otp, OTP_TYPES.RESET_PASSWORD_EMAIL);
+
+  const existingPasswordMatch = await bcrypt.compare(password, user.passwordHash);
+  if (existingPasswordMatch) {
+    throw new Error('New password must be different from current password');
+  }
+
   const hash = await bcrypt.hash(password, 10);
   await user.update({ passwordHash: hash });
 };

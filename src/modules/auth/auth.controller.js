@@ -60,28 +60,71 @@ export const refreshToken = async (req, res) => {
 };
 
 export const sendOtp = async (req, res) => {
-  await service.sendOtp(req.user.id,'Mobile');
-  res.json({ message: 'OTP sent' });
+  try {
+    await service.sendOtp(req.user.id, 'MOBILE');
+    res.json({ success: true, message: 'OTP sent successfully' });
+  } catch (error) {
+    res.status(error?.statusCode || 400).json({
+      success: false,
+      message: error?.message || 'Failed to send OTP',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.meta ? { data: error.meta } : {}),
+    });
+  }
 };
 
 export const verifyOtp = async (req, res) => {
-  await service.verifyOtp(req.user.id, req.body.otp,'Mobile');
-  res.json({ message: 'Verified' });
+  try {
+    await service.verifyOtp(req.user.id, req.body.otp, 'MOBILE');
+    res.json({ success: true, message: 'OTP verified successfully' });
+  } catch (error) {
+    res.status(error?.statusCode || 400).json({
+      success: false,
+      message: error?.message || 'OTP verification failed',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.meta ? { data: error.meta } : {}),
+    });
+  }
 };
 
 export const forgotPassword = async (req, res) => {
-  await service.forgotPassword(req.body.email,'EMAIL');
-  res.json({ message: 'OTP sent' });
+  try {
+    await service.forgotPassword(req.body.email, 'EMAIL');
+    res.json({ success: true, message: 'If the email exists, OTP has been sent.' });
+  } catch (error) {
+    res.status(error?.statusCode || 400).json({
+      success: false,
+      message: error?.message || 'Failed to process forgot password request',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.meta ? { data: error.meta } : {}),
+    });
+  }
 };
 
 export const resetPassword = async (req, res) => {
-  await service.resetPassword(req.body.email, req.body.otp, req.body.password);
-  res.json({ message: 'Password reset' });
+  try {
+    await service.resetPassword(req.body.email, req.body.otp, req.body.newPassword || req.body.password);
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(error?.statusCode || 400).json({
+      success: false,
+      message: error?.message || 'Failed to reset password',
+      ...(error?.code ? { code: error.code } : {}),
+      ...(error?.meta ? { data: error.meta } : {}),
+    });
+  }
 };
 
 export const changePassword = async (req, res) => {
-  await service.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword);
-  res.json({ message: 'Password changed' });
+  try {
+    await service.changePassword(req.user.id, req.body.oldPassword, req.body.newPassword);
+    res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(error?.statusCode || 400).json({
+      success: false,
+      message: error?.message || 'Failed to change password',
+    });
+  }
 };
 
 export const me = async (req, res) => {

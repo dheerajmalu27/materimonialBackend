@@ -1,10 +1,54 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import * as auth from './auth.controller.js';
 import { validate } from '../../middlewares/validate.middleware.js';
-import { registerSchema, loginSchema } from './auth.validation.js';
+import {
+	registerSchema,
+	loginSchema,
+	verifyOtpSchema,
+	forgotPasswordSchema,
+	resetPasswordSchema,
+	changePasswordSchema,
+} from './auth.validation.js';
 import { authGuard } from '../../middlewares/auth.middleware.js';
 import { activityMiddleware } from '../../middlewares/activity.middleware.js';
 const router = express.Router();
+
+const otpSendLimiter = rateLimit({
+	windowMs: 10 * 60 * 1000,
+	max: 5,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: {
+		success: false,
+		code: 'OTP_SEND_RATE_LIMIT',
+		message: 'Too many OTP requests. Please try again in a few minutes.',
+	},
+});
+
+const otpVerifyLimiter = rateLimit({
+	windowMs: 10 * 60 * 1000,
+	max: 10,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: {
+		success: false,
+		code: 'OTP_VERIFY_RATE_LIMIT',
+		message: 'Too many OTP verification attempts. Please try again later.',
+	},
+});
+
+const forgotPasswordLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 5,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: {
+		success: false,
+		code: 'FORGOT_PASSWORD_RATE_LIMIT',
+		message: 'Too many requests. Please try again later.',
+	},
+});
 
 /**
  * @swagger
@@ -255,7 +299,7 @@ router.post('/refresh-token', auth.refreshToken);
  *       500:
  *         description: Internal server error
  */
-router.post('/send-otp', authGuard, auth.sendOtp);
+router.post('/send-otp', authGuard, otpSendLimiter, auth.sendOtp);
 
 /**
  * @swagger
@@ -299,7 +343,7 @@ router.post('/send-otp', authGuard, auth.sendOtp);
  *       500:
  *         description: Internal server error
  */
-router.post('/verify-otp', authGuard, auth.verifyOtp);
+router.post('/verify-otp', authGuard, otpVerifyLimiter, validate(verifyOtpSchema), auth.verifyOtp);
 
 /**
  * @swagger
@@ -342,7 +386,7 @@ router.post('/verify-otp', authGuard, auth.verifyOtp);
  *       500:
  *         description: Internal server error
  */
-router.post('/forgot-password', auth.forgotPassword);
+router.post('/forgot-password', forgotPasswordLimiter, validate(forgotPasswordSchema), auth.forgotPassword);
 
 /**
  * @swagger
@@ -390,7 +434,7 @@ router.post('/forgot-password', auth.forgotPassword);
  *       500:
  *         description: Internal server error
  */
-router.post('/reset-password', auth.resetPassword);
+router.post('/reset-password', otpVerifyLimiter, validate(resetPasswordSchema), auth.resetPassword);
 
 /**
  * @swagger
@@ -440,7 +484,7 @@ router.post('/reset-password', auth.resetPassword);
  *       500:
  *         description: Internal server error
  */
-router.post('/change-password', authGuard, auth.changePassword);
+router.post('/change-password', authGuard, validate(changePasswordSchema), auth.changePassword);
 
 /**
  * @swagger

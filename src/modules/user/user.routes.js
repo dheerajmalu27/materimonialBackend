@@ -1055,5 +1055,6 @@ router.get('/me/preference-matches', authGuard, uc.getPreferenceMatchProfiles);
  *         description: Internal server error
  */
 router.get('/me/same-city', authGuard, uc.getSameCityProfiles);
+router.get('/me/shortlisted', authGuard, uc.getShortlistedProfiles);
 
 export default router;

@@ -1,6 +1,7 @@
 import * as service from './user.service.js';
 import { calculateAge } from '../../utils/age.js';
 import { getInterestStatus } from '../../utils/profileFormatter.js';
+import { getShortlists } from '../interactions/shortlist.service.js';
 
 const parseFamilyMeta = (family) => {
   const raw = family?.familyNativePlace;
@@ -43,6 +44,8 @@ export const getMyProfile = async (req, res) => {
   try {
     
     const userData = await service.getUserProfileById(req.user.id);
+    const shortlists = await getShortlists(req.user.id);
+    const shortlistedUserIds = shortlists.map((item) => String(item.shortlistedUserId));
     const user = req.user;
     const profile = userData.profile;
     const addresses = userData.addresses || [];
@@ -105,6 +108,7 @@ export const getMyProfile = async (req, res) => {
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      shortlistedUserIds,
 
       // Personal Details
       personal: {
@@ -114,6 +118,7 @@ export const getMyProfile = async (req, res) => {
         dateOfBirth: profile?.dob || null,
         age: profile ? calculateAge(profile.dob) : null,
         birthTime: profile?.birthTime || null,
+        location: profile?.location || '',
         height: profile?.heightCm ? `${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}\"` : '',
         heightCm: profile?.heightCm || null,
         weight: profile?.weightKg ? `${profile.weightKg} kg` : '',
@@ -262,6 +267,7 @@ export const updateMyProfile = async (req, res) => {
         dateOfBirth: profile?.dob || null,
         age: profile ? calculateAge(profile.dob) : null,
         birthTime: profile?.birthTime || null,
+        location: profile?.location || '',
         height: profile?.heightCm ? `${Math.floor(profile.heightCm / 30.48)}'${Math.round((profile.heightCm % 30.48) / 2.54)}\"` : '',
         heightCm: profile?.heightCm || null,
         weight: profile?.weightKg ? `${profile.weightKg} kg` : '',
@@ -422,6 +428,18 @@ export const getSameCityProfiles = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const result = await service.getSameCityProfiles(userId, page, limit);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getShortlistedProfiles = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit, 10) || 20;
+    const offset = parseInt(req.query.offset, 10) || 0;
+    const result = await service.getShortlistedProfiles(userId, limit, offset);
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

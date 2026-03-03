@@ -2,6 +2,8 @@
 import * as service from './chat.service.js';
 import presence from './presence.service.js';
 import db from '../../models/index.js';
+import { Op } from 'sequelize';
+import { enforceMessageQuota } from '../monetization/monetization.service.js';
 
 export const createConversation = async (req, res) => {
   const data = await service.createConversation(req.user.id, req.body.userId);
@@ -28,45 +30,83 @@ export const deleteConversation = async (req, res) => {
 };
 
 export const sendMessage = async (req, res) => {
-  res.json(await service.sendMessage(req.user.id, req.body));
+  try {
+    await enforceMessageQuota(req.user.id);
+  } catch (error) {
+    return res.status(error?.statusCode || 403).json({
+      success: false,
+      code: error?.code || 'MESSAGE_LIMIT_REACHED',
+      message: error?.message || 'Daily message limit reached. Upgrade to Premium.',
+      data: error?.meta || null,
+    });
+  }
+
+  const message = await service.sendMessage(req.user.id, req.body);
+
+  const payload = {
+    id: `msg_${message.id}`,
+    text: message.message,
+    timestamp: message.sentAt,
+    senderId: String(message.senderId),
+    conversationId: String(message.conversationId),
+    isRead: Boolean(message.isRead)
+  };
+
+  if (req.io) {
+    req.io.to(`conversation_${message.conversationId}`).emit('receive-message', payload);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      messageId: payload.id,
+      text: payload.text,
+      timestamp: payload.timestamp,
+      conversationId: payload.conversationId,
+      senderId: payload.senderId,
+      isRead: payload.isRead
+    }
+  });
 };
 
 export const getMessages = async (req, res) => {
   const { limit = 50, before } = req.query;
   const { messages, hasMore } = await service.getMessages(req.user.id, req.params.conversationId, parseInt(limit), before);
 
-  // Get conversation to verify access
-  const conversation = await service.getConversation(req.user.id, req.params.conversationId);
+  const userIdNum = parseInt(req.user.id, 10);
+  const conversationIdNum = parseInt(req.params.conversationId, 10);
+
+  const conversation = await db.Conversation.findOne({
+    where: {
+      id: conversationIdNum,
+      [Op.or]: [{ user1Id: userIdNum }, { user2Id: userIdNum }]
+    },
+    include: [
+      {
+        model: db.User,
+        as: 'user1',
+        include: [{ model: db.UserProfile, as: 'profile' }]
+      },
+      {
+        model: db.User,
+        as: 'user2',
+        include: [{ model: db.UserProfile, as: 'profile' }]
+      }
+    ]
+  });
+
   if (!conversation) {
     return res.status(404).json({ success: false, message: 'Conversation not found' });
   }
 
-  const userIdNum = parseInt(req.user.id, 10);
-
-  if (messages.length === 0) {
-    return res.status(400).json({ success: false, message: 'No messages in conversation' });
-  }
-
-  const senderIds = [...new Set(messages.map(msg => msg.senderId))];
-  const otherSenderIds = senderIds.filter(id => id !== userIdNum);
-
-  if (otherSenderIds.length === 0) {
-    return res.status(400).json({ success: false, message: 'No other participant in messages' });
-  }
-
-  const otherUserId = otherSenderIds[0];
-
-  // Fetch the other user's details
-  const otherUser = await db.User.findOne({
-    where: { id: otherUserId },
-    include: [{ model: db.UserProfile, as: 'profile' }]
-  });
+  const otherUser = Number(conversation.user1Id) === userIdNum
+    ? conversation.user2
+    : conversation.user1;
 
   if (!otherUser) {
     return res.status(404).json({ success: false, message: 'Participant not found' });
   }
 
-  // Transform messages
   const transformedMessages = messages.map(msg => ({
     id: `msg_${msg.id}`,
     text: msg.message,
@@ -78,11 +118,12 @@ export const getMessages = async (req, res) => {
   res.json({
     success: true,
     data: {
-      conversationId: `conv_${req.params.conversationId}`,
+      conversationId: `${conversationIdNum}`,
       participant: {
-        id: otherUser.id,
+        id: `${otherUser.id}`,
         name: `${otherUser.profile?.firstName || ''} ${otherUser.profile?.lastName || ''}`.trim() || 'Unknown',
-        profileImage: otherUser.profile?.profileImage || null
+        profileImage: otherUser.profile?.profileImage || null,
+        gender: otherUser.gender || null
       },
       messages: transformedMessages,
       hasMore

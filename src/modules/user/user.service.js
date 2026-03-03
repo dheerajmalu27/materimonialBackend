@@ -7,6 +7,7 @@ import UserProfession from '../../models/userProfession.model.js';
 import UserLifestyle from '../../models/userLifestyle.model.js';
 import UserFamily from '../../models/userFamily.model.js';
 import UserKundli from '../../models/userKundli.model.js'
+import Shortlist from '../../models/shortlist.model.js';
 import PartnerPreference from '../../models/partnerPreference.model.js';
 import { calculateAge } from '../../utils/age.js';
 import { sequelize } from '../../models/index.js';
@@ -98,6 +99,11 @@ export const updateMyProfile = async (userId, data) => {
         : hasValue(data?.personal?.income)
           ? data.personal.income
           : null;
+    const normalizedLocation = hasValue(data?.personal?.location)
+      ? data.personal.location
+      : hasValue(data.location)
+        ? data.location
+        : null;
 
     // Update UserProfile with personal, religion data
     const profileData = {};
@@ -134,6 +140,9 @@ export const updateMyProfile = async (userId, data) => {
     }
     if (hasValue(normalizedIncome)) {
       profileData.income = normalizedIncome;
+    }
+    if (hasValue(normalizedLocation)) {
+      profileData.location = normalizedLocation;
     }
 
     if (data.religion) {
@@ -670,7 +679,7 @@ export const getPreferenceMatchProfiles = async (userId, page = 1, limit = 10) =
  */
 export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
   const currentUser = await User.findByPk(userId, {
-    include: [{ model: UserAddress, as: 'addresses' }]
+    include: [{ model: UserProfile, as: 'profile' }]
   });
 
   if (!currentUser) {
@@ -678,9 +687,11 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
   }
 
   const oppositeGender = currentUser.gender === 'male' ? 'female' : 'male';
-  const presentAddress = currentUser.addresses?.find(addr => addr.addressType === 'present' || addr.addressType === 'permanent'|| addr.addressType === 'both');
+  const currentLocation = String(
+    currentUser?.profile?.location || currentUser?.profile?.dataValues?.location || ''
+  ).trim();
 
-  if (!presentAddress) {
+  if (!currentLocation) {
     return {
       matches: [],
       totalCount: 0,
@@ -700,20 +711,16 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
       {
         model: UserProfile,
         as: 'profile',
+        where: sequelize.where(
+          sequelize.fn('LOWER', sequelize.fn('TRIM', sequelize.col('profile.location'))),
+          currentLocation.toLowerCase()
+        ),
         required: true
       },
       {
         model: UserAddress,
         as: 'addresses',
-        where: {
-          [Op.or]: [
-            { addressType: 'present' },
-            { addressType: 'permanent' },
-            { addressType: 'both' }
-          ],
-          city: presentAddress.city
-        },
-        required: true
+        required: false
       },
       {
         model: UserEducation,
@@ -740,7 +747,6 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
 
   for (const user of rows) {
     const profile = user.profile;
-    const presentAddr = user.addresses.find(addr => addr.addressType === 'present' ||addr.addressType === 'permanent'|| addr.addressType === 'both');
     const family = user.family;
     const lifestyle = user.lifestyle;
     const age = calculateAge(profile.dob);
@@ -774,6 +780,101 @@ export const getSameCityProfiles = async (userId, page = 1, limit = 10) => {
     matches,
     totalCount,
     hasMore
+  };
+};
+
+/**
+ * Get shortlisted profiles with pagination
+ * Response shape mirrors potential/same-city APIs: { matches, totalCount, hasMore }
+ * @param {number} userId - Current user ID
+ * @param {number} limit - Number of records per page
+ * @param {number} offset - Record offset
+ */
+export const getShortlistedProfiles = async (userId, limit = 20, offset = 0) => {
+  const parsedLimit = Number.isFinite(limit) ? Math.max(1, limit) : 20;
+  const parsedOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
+
+  const { count, rows } = await Shortlist.findAndCountAll({
+    where: { userId },
+    order: [['createdAt', 'DESC']],
+    limit: parsedLimit,
+    offset: parsedOffset
+  });
+
+  if (!rows.length) {
+    return {
+      matches: [],
+      totalCount: count,
+      hasMore: false
+    };
+  }
+
+  const shortlistedUserIds = rows.map((item) => Number(item.shortlistedUserId));
+
+  const shortlistedUsers = await User.findAll({
+    where: {
+      id: { [Op.in]: shortlistedUserIds },
+      isActive: true
+    },
+    include: [
+      {
+        model: UserProfile,
+        as: 'profile',
+        required: true
+      },
+      {
+        model: UserAddress,
+        as: 'addresses',
+        required: false
+      },
+      {
+        model: UserFamily,
+        as: 'family',
+        required: false
+      },
+      {
+        model: UserLifestyle,
+        as: 'lifestyle',
+        required: false
+      }
+    ]
+  });
+
+  const usersById = new Map(shortlistedUsers.map((item) => [Number(item.id), item]));
+  const matches = [];
+
+  for (const shortlistedUserId of shortlistedUserIds) {
+    const user = usersById.get(shortlistedUserId);
+    if (!user) continue;
+
+    const profile = user.profile;
+    const family = user.family;
+    const lifestyle = user.lifestyle;
+    const age = calculateAge(profile?.dob);
+    const mutualInterests = await getMutualInterests(userId, user.id);
+    const interestStatus = await getInterestStatus(userId, user.id);
+    const distance = await calculateDistance(userId, user.id, user.addresses || []);
+
+    const profileObject = buildProfileObject({
+      user,
+      profile,
+      family,
+      lifestyle,
+      compatibilityScore: 0,
+      distance,
+      mutualInterests,
+      profileViews: 0,
+      interestStatus,
+      age
+    });
+
+    matches.push(profileObject);
+  }
+
+  return {
+    matches,
+    totalCount: count,
+    hasMore: count > parsedOffset + parsedLimit
   };
 };
 

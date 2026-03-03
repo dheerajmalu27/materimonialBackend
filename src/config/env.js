@@ -31,6 +31,7 @@ export const env = {
 
   monetization: {
     freeDailyInterestsLimit: parseInt(process.env.MONETIZATION_FREE_DAILY_INTERESTS_LIMIT || '5', 10),
+    freeDailyMessagesLimit: parseInt(process.env.MONETIZATION_FREE_DAILY_MESSAGES_LIMIT || '5', 10),
     freeUnlimitedInterests: process.env.MONETIZATION_FREE_UNLIMITED_INTERESTS === 'true',
     freeAdvancedSearch: process.env.MONETIZATION_FREE_ADVANCED_SEARCH === 'true',
     freeVerifiedBadge: process.env.MONETIZATION_FREE_VERIFIED_BADGE === 'true',

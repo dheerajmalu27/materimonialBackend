@@ -1,8 +1,17 @@
 export const validate = (schema) => (req, res, next) => {
   const errors = [];
 
+  const isDirectJoiSchema = schema && typeof schema.validate === 'function';
+
+  if (isDirectJoiSchema) {
+    const { error } = schema.validate(req.body, { abortEarly: false });
+    if (error) {
+      errors.push(...error.details.map((d) => d.message));
+    }
+  }
+
   // Validate body if schema has body validation
-  if (schema.body) {
+  if (!isDirectJoiSchema && schema.body) {
     const { error } = schema.body.validate(req.body, { abortEarly: false });
     if (error) {
       errors.push(...error.details.map((d) => d.message));
@@ -10,7 +19,7 @@ export const validate = (schema) => (req, res, next) => {
   }
 
   // Validate params if schema has params validation
-  if (schema.params) {
+  if (!isDirectJoiSchema && schema.params) {
     const { error } = schema.params.validate(req.params, { abortEarly: false });
     if (error) {
       errors.push(...error.details.map((d) => d.message));
@@ -18,7 +27,7 @@ export const validate = (schema) => (req, res, next) => {
   }
 
   // Validate query if schema has query validation
-  if (schema.query) {
+  if (!isDirectJoiSchema && schema.query) {
     const { error } = schema.query.validate(req.query, { abortEarly: false });
     if (error) {
       errors.push(...error.details.map((d) => d.message));

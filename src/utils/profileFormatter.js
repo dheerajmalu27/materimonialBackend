@@ -161,6 +161,35 @@ export const formatHeight = (heightCm) => {
   return heightCm || null;
 };
 
+const resolveLocation = (profile, addresses = []) => {
+  const directLocation = String(
+    profile?.location
+      || profile?.dataValues?.location
+      || ''
+  ).trim();
+  if (directLocation) {
+    return directLocation;
+  }
+
+  const city = profile?.city || profile?.dataValues?.city || '';
+  const state = profile?.state || profile?.dataValues?.state || '';
+  const cityState = `${city}, ${state}`
+    .trim()
+    .replace(/^,|,$/g, '');
+  if (cityState) {
+    return cityState;
+  }
+
+  const primaryAddress = Array.isArray(addresses) && addresses.length > 0
+    ? addresses[0]
+    : null;
+  const addressLocation = `${primaryAddress?.city || ''}, ${primaryAddress?.state || ''}`
+    .trim()
+    .replace(/^,|,$/g, '');
+
+  return addressLocation || null;
+};
+
 /**
  * Format user profile for API response
  * Standardizes the response structure for both potential matches and same-city users
@@ -190,7 +219,7 @@ export const formatProfileForResponse = async (user, userId, options = {}) => {
       id: `${user.id}`,
       name: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
       age: age || 0,
-      location: `${profile?.city || ''}, ${profile?.state || ''}`.trim().replace(/^,|,$/g, ''),
+      location: resolveLocation(profile, addresses),
       occupation: profile?.occupation || '',
       bio: profile?.aboutMe || '',
       religion: profile?.religion || '',
@@ -250,7 +279,7 @@ export const buildProfileObject = (data) => {
     id: `${user.id}`,
     name: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
     age: age || 0,
-    location: `${profile?.city || ''}, ${profile?.state || ''}`.trim().replace(/^,|,$/g, ''),
+    location: resolveLocation(profile, user?.addresses || []),
     occupation: profile?.occupation || '',
     bio: profile?.aboutMe || '',
     religion: profile?.religion || '',

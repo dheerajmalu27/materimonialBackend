@@ -3,6 +3,7 @@ import Razorpay from 'razorpay';
 import { Op } from 'sequelize';
 import { env } from '../../config/env.js';
 import Interest from '../../models/interest.model.js';
+import Message from '../../models/message.model.js';
 import UserActivity from '../../models/userActivity.model.js';
 
 const getBaseConfig = () => {
@@ -12,6 +13,10 @@ const getBaseConfig = () => {
 
   const freeDailyLimit = Number.isFinite(env.monetization.freeDailyInterestsLimit)
     ? env.monetization.freeDailyInterestsLimit
+    : 5;
+
+  const freeDailyMessagesLimit = Number.isFinite(env.monetization.freeDailyMessagesLimit)
+    ? env.monetization.freeDailyMessagesLimit
     : 5;
 
   return {
@@ -25,11 +30,13 @@ const getBaseConfig = () => {
         durationDays: 0,
         features: {
           basicMessaging: env.monetization.freeBasicMessaging,
+          videoCall: false,
           limitedSearch: env.monetization.freeLimitedSearch,
           advancedSearch: env.monetization.freeAdvancedSearch,
           verifiedBadge: env.monetization.freeVerifiedBadge,
           unlimitedInterests: env.monetization.freeUnlimitedInterests,
-          dailyInterestsLimit: env.monetization.freeUnlimitedInterests ? null : Math.max(0, freeDailyLimit)
+          dailyInterestsLimit: env.monetization.freeUnlimitedInterests ? null : Math.max(0, freeDailyLimit),
+          dailyMessagesLimit: Math.max(0, freeDailyMessagesLimit),
         }
       },
       premium: {
@@ -40,11 +47,13 @@ const getBaseConfig = () => {
         durationDays: Math.max(1, env.monetization.premiumDurationDays || 365),
         features: {
           basicMessaging: env.monetization.premiumBasicMessaging,
+          videoCall: true,
           limitedSearch: false,
           advancedSearch: env.monetization.premiumAdvancedSearch,
           verifiedBadge: env.monetization.premiumVerifiedBadge,
           unlimitedInterests: env.monetization.premiumUnlimitedInterests,
-          dailyInterestsLimit: env.monetization.premiumUnlimitedInterests ? null : Math.max(0, freeDailyLimit)
+          dailyInterestsLimit: env.monetization.premiumUnlimitedInterests ? null : Math.max(0, freeDailyLimit),
+          dailyMessagesLimit: null,
         }
       }
     }
@@ -154,6 +163,67 @@ export const enforceInterestQuota = async (userId) => {
     const error = new Error(`Daily interest limit reached (${dailyLimit}). Upgrade plan or change config to allow unlimited interests.`);
     error.statusCode = 403;
     error.code = 'DAILY_INTEREST_LIMIT_REACHED';
+    error.meta = {
+      dailyLimit,
+      usedToday,
+      remainingToday: 0,
+      activePlan: entitlements.activePlan,
+      features: entitlements.features,
+    };
+    throw error;
+  }
+
+  return {
+    allowed: true,
+    usedToday,
+    dailyLimit,
+    remainingToday: Math.max(0, dailyLimit - usedToday),
+    activePlan: entitlements.activePlan,
+  };
+};
+
+export const getTodayMessageUsage = async (userId) => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const count = await Message.count({
+    where: {
+      senderId: userId,
+      sentAt: {
+        [Op.between]: [start, end],
+      },
+    },
+  });
+
+  return count;
+};
+
+export const enforceMessageQuota = async (userId) => {
+  const entitlements = await getUserEntitlements(userId);
+
+  if (entitlements.activePlan === 'premium') {
+    return {
+      allowed: true,
+      usedToday: await getTodayMessageUsage(userId),
+      dailyLimit: null,
+      remainingToday: null,
+      activePlan: entitlements.activePlan,
+    };
+  }
+
+  const dailyLimit = Number.isFinite(entitlements.features?.dailyMessagesLimit)
+    ? Math.max(0, entitlements.features.dailyMessagesLimit)
+    : 5;
+
+  const usedToday = await getTodayMessageUsage(userId);
+
+  if (usedToday >= dailyLimit) {
+    const error = new Error(`Daily message limit reached (${dailyLimit}). Upgrade to Premium for unlimited messaging.`);
+    error.statusCode = 403;
+    error.code = 'DAILY_MESSAGE_LIMIT_REACHED';
     error.meta = {
       dailyLimit,
       usedToday,
