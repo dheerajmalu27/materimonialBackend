@@ -115,3 +115,5 @@ playwright/.cache/
 *.tar.gz
 
 src/config/firebaseServiceAccount.json
+google/
+uploads/
