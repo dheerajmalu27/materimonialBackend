@@ -11,6 +11,7 @@ const router = express.Router();
  * /v1/education/me:
  *   get:
  *     summary: Get user's education details
+ *     deprecated: true
  *     tags: [Education]
  *     security:
  *       - bearerAuth: []
@@ -69,6 +70,7 @@ router.get('/me', authGuard, getMyEducationController);
  * /v1/education/me:
  *   post:
  *     summary: Add or update user's education details
+ *     deprecated: true
  *     tags: [Education]
  *     security:
  *       - bearerAuth: []
@@ -167,6 +169,7 @@ router.post('/me', authGuard, validate(educationValidation.upsertEducationSchema
  * /v1/education/me:
  *   delete:
  *     summary: Delete user's education details
+ *     deprecated: true
  *     tags: [Education]
  *     security:
  *       - bearerAuth: []

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authGuard } from '../../middlewares/auth.middleware.js';
 import * as profileController from './profile.controller.js';
+import * as userController from '../user/user.controller.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ const router = Router();
  * /profile/me:
  *   get:
  *     summary: Get current user's profile
+ *     deprecated: true
  *     tags: [Profile]
  *     security:
  *       - bearerAuth: []
@@ -36,13 +38,14 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/me', authGuard, profileController.getMyProfile);
+router.get('/me', authGuard, userController.getMyProfile);
 
 /**
  * @swagger
  * /profile/me:
  *   put:
  *     summary: Update current user's profile
+ *     deprecated: true
  *     tags: [Profile]
  *     security:
  *       - bearerAuth: []
@@ -103,13 +106,14 @@ router.get('/me', authGuard, profileController.getMyProfile);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/me', authGuard, profileController.updateMyProfile);
+router.put('/me', authGuard, userController.updateMyProfile);
 
 /**
  * @swagger
  * /profile/completion:
  *   get:
  *     summary: Get profile completion percentage
+ *     deprecated: true
  *     tags: [Profile]
  *     security:
  *       - bearerAuth: []

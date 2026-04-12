@@ -15,10 +15,10 @@ export default class UserPushToken extends Model {
           unique: true,
           field: 'user_id',
         },
-        expoPushToken: {
+        fcmToken: {
           type: DataTypes.STRING,
           allowNull: false,
-          field: 'expo_push_token',
+          field: 'fcm_token',
         },
         updatedAt: {
           type: DataTypes.DATE,

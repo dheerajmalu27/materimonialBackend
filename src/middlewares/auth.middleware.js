@@ -16,7 +16,6 @@ export const authGuard = (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     const decoded = jwt.verify(token, env.jwt.jwtSecret);
-    console.log(decoded)
     req.user = decoded; // { id, email, gender }
 
     next();

@@ -18,7 +18,7 @@ import {
   buildProfileObject
 } from '../../utils/profileFormatter.js';
 
-export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null) => {
+export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null, filters = {}) => {
   try {
     // 1️⃣ Get partner preference
     const preference = await PartnerPreference.findOne({
@@ -90,6 +90,69 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
 
     const matches = [];
 
+    const parsePreferenceValues = (value) =>
+      String(value || '')
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+
+    const matchesPreferenceToken = (candidateValue, preferenceValues) => {
+      if (!preferenceValues.length) return false;
+
+      const normalizedCandidate = String(candidateValue || '').trim().toLowerCase();
+      if (!normalizedCandidate) return false;
+
+      const candidateTokens = normalizedCandidate
+        .split(/[\-,/|]/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+
+      return preferenceValues.some(
+        (prefValue) =>
+          normalizedCandidate === prefValue ||
+          candidateTokens.includes(prefValue)
+      );
+    };
+
+    const preferredReligions = parsePreferenceValues(preference.religion);
+    const preferredCastes = parsePreferenceValues(preference.caste);
+    const preferredEducations = parsePreferenceValues(preference.education);
+    const preferredOccupations = parsePreferenceValues(preference.occupation);
+    const preferredIncomeRanges = parsePreferenceValues(preference.incomeRange);
+    const preferredLocations = parsePreferenceValues(preference.location);
+    const preferredMotherTongues = parsePreferenceValues(preference.motherTongue);
+
+    const normalizeFilterValues = (values) =>
+      Array.isArray(values)
+        ? values.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    const selectedReligions = normalizeFilterValues(filters.religion);
+    const selectedCastes = normalizeFilterValues(filters.caste);
+    const selectedLocations = normalizeFilterValues(filters.location);
+    const selectedEducations = normalizeFilterValues(filters.education);
+    const selectedOccupations = normalizeFilterValues(filters.occupation);
+    const selectedIncomes = normalizeFilterValues(filters.income);
+
+    const hasAnyMatch = (value, selectedValues) => {
+      if (!selectedValues.length) return true;
+      const normalizedValue = String(value || '').trim().toLowerCase();
+      if (!normalizedValue) return false;
+      return selectedValues.some((selected) => normalizedValue.includes(selected));
+    };
+
+    const buildCandidateLocation = (candidate, profile) => {
+      const profileLocation = String(profile?.location || '').trim();
+      if (profileLocation) return profileLocation;
+
+      const primaryAddress = Array.isArray(candidate?.addresses) ? candidate.addresses[0] : null;
+      if (!primaryAddress) return '';
+
+      return [primaryAddress.city, primaryAddress.state, primaryAddress.country]
+        .filter(Boolean)
+        .join(', ');
+    };
+
     // 4️⃣ Loop through candidates and calculate scores
     for (const candidate of candidates) {
       let score = 0;
@@ -98,6 +161,14 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
 
       if (!profile) continue;
       const age = calculateAge(profile.dob);
+      const locationValue = buildCandidateLocation(candidate, profile);
+
+      if (!hasAnyMatch(locationValue, selectedLocations)) continue;
+      if (!hasAnyMatch(profile.religion, selectedReligions)) continue;
+      if (!hasAnyMatch(profile.caste, selectedCastes)) continue;
+      if (!hasAnyMatch(profile.education, selectedEducations)) continue;
+      if (!hasAnyMatch(profile.occupation, selectedOccupations)) continue;
+      if (!hasAnyMatch(profile.income, selectedIncomes)) continue;
 
       // 🎂 Age (25)
       if (
@@ -121,45 +192,41 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
       }
 
       // 🛕 Religion & Caste (20)
-      if (
-        preference.religion &&
-        preference.caste &&
-        profile.religion === preference.religion &&
-        profile.caste === preference.caste
-      ) {
-        score += 20;
+      const religionMatched = matchesPreferenceToken(profile.religion, preferredReligions);
+      const casteMatched = matchesPreferenceToken(profile.caste, preferredCastes);
+
+      if (preferredReligions.length && preferredCastes.length) {
+        if (religionMatched && casteMatched) {
+          score += 20;
+        }
+      } else if (preferredReligions.length && religionMatched) {
+        score += 10;
+      } else if (preferredCastes.length && casteMatched) {
+        score += 10;
       }
 
       // 🎓 Education (15)
-      if (
-        preference.education &&
-        profile.education === preference.education
-      ) {
+      if (matchesPreferenceToken(profile.education, preferredEducations)) {
         score += 15;
       }
 
-      // 💼 Occupation (15) - NEW - check if candidate's occupation matches preference
-      if (
-        preference.occupation &&
-        profile.occupation &&
-        profile.occupation.toLowerCase().includes(preference.occupation.toLowerCase())
-      ) {
+      // 💼 Occupation (15)
+      if (matchesPreferenceToken(profile.occupation, preferredOccupations)) {
         score += 15;
       }
 
       // 📍 Location (10)
-      if (
-        (preference.city && profile.city === preference.city) ||
-        (preference.state && profile.state === preference.state)
-      ) {
+      if (matchesPreferenceToken(locationValue, preferredLocations)) {
+        score += 10;
+      }
+
+      // 💰 Income Range (10)
+      if (matchesPreferenceToken(profile.income, preferredIncomeRanges)) {
         score += 10;
       }
 
       // 🗣 Mother Tongue (5)
-      if (
-        preference.motherTongue &&
-        profile.motherTongue === preference.motherTongue
-      ) {
+      if (matchesPreferenceToken(profile.motherTongue, preferredMotherTongues)) {
         score += 5;
       }
 

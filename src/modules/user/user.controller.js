@@ -2,6 +2,9 @@ import * as service from './user.service.js';
 import { calculateAge } from '../../utils/age.js';
 import { getInterestStatus } from '../../utils/profileFormatter.js';
 import { getShortlists } from '../interactions/shortlist.service.js';
+import fs from 'fs';
+import path from 'path';
+import UserProfile from '../../models/userProfile.model.js';
 
 const parseFamilyMeta = (family) => {
   const raw = family?.familyNativePlace;
@@ -21,10 +24,22 @@ const parseFamilyMeta = (family) => {
   }
 };
 
+const removeUserFileIfExists = (fileUrl, userId) => {
+  if (!fileUrl || typeof fileUrl !== 'string') return;
+
+  try {
+    const filename = path.basename(fileUrl);
+    const filePath = path.join(process.cwd(), 'uploads', String(userId), filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch (error) {
+    // ignore cleanup failures
+  }
+};
+
 /* ADMIN / PUBLIC */
 export const getUserById = async (req, res) => {
-   console.log("params")
-  console.log(req.params)
   const user = await service.getUserById(req.params.id);
   res.json(user);
 };
@@ -129,6 +144,7 @@ export const getMyProfile = async (req, res) => {
         // provide full images array and primary image
         profileImages: profile?.profileImages || (profile?.profileImage ? [profile.profileImage] : []),
         profileImage: (profile?.profileImages && profile.profileImages.length > 0) ? profile.profileImages[0] : profile?.profileImage || null,
+        bioDataPdf: profile?.biodataPdf || null,
         lastActive: user.updatedAt
       },
 
@@ -183,7 +199,6 @@ export const getMyProfile = async (req, res) => {
       partnerPreference: partnerPreference // TODO: Add partner preferences if needed
     };
 
-    console.log(formattedProfile);
     res.json({
       success: true,
       data: formattedProfile
@@ -277,6 +292,7 @@ export const updateMyProfile = async (req, res) => {
         aboutMe: profile?.aboutMe || '',
         profileImages: profile?.profileImages || (profile?.profileImage ? [profile.profileImage] : []),
         profileImage: (profile?.profileImages && profile.profileImages.length > 0) ? profile.profileImages[0] : profile?.profileImage || null,
+        bioDataPdf: profile?.biodataPdf || null,
         lastActive: user.updatedAt
       },
 
@@ -354,6 +370,57 @@ export const uploadProfilePhotos = async (req, res) => {
   } catch (error) {
     console.error('Upload error', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const uploadBioDataPdf = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No PDF uploaded' });
+    }
+
+    const userId = req.user.id;
+    const profile = await UserProfile.findOne({ where: { userId } });
+
+    if (profile?.biodataPdf) {
+      removeUserFileIfExists(profile.biodataPdf, userId);
+    }
+
+    const host = req.get('host');
+    const protocol = req.protocol;
+    const url = `${protocol}://${host}/uploads/${userId}/${req.file.filename}`;
+
+    await UserProfile.upsert({ userId, biodataPdf: url }, { returning: false });
+
+    return res.json({
+      success: true,
+      message: 'Bio-data PDF uploaded successfully',
+      data: { bioDataPdf: url }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteBioDataPdf = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const profile = await UserProfile.findOne({ where: { userId } });
+
+    if (!profile?.biodataPdf) {
+      return res.status(404).json({ success: false, message: 'No bio-data PDF found' });
+    }
+
+    removeUserFileIfExists(profile.biodataPdf, userId);
+    await UserProfile.upsert({ userId, biodataPdf: null }, { returning: false });
+
+    return res.json({
+      success: true,
+      message: 'Bio-data PDF deleted successfully',
+      data: { bioDataPdf: null }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -532,6 +599,7 @@ export const getUserProfileById = async (req, res) => {
         motherTongue: profile?.motherTongue || '',
         aboutMe: profile?.aboutMe || '',
         profileImage: profile?.profileImage || null,
+        bioDataPdf: profile?.biodataPdf || null,
         lastActive: userData.updatedAt
       },
 
@@ -586,7 +654,6 @@ export const getUserProfileById = async (req, res) => {
       partnerPreferences: null // TODO: Add partner preferences if needed
     };
 
-    console.log(formattedProfile.kundli);
     res.json({
       success: true,
       data: formattedProfile

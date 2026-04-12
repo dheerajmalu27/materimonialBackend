@@ -134,10 +134,26 @@ export const deleteConversation = async (userId, id) => {
 
 /* SEND MESSAGE */
 export const sendMessage = async (senderId, data) => {
+  const senderIdNum = parseInt(senderId, 10);
+  const conversationIdNum = parseInt(data.conversationId, 10);
+
+  const conversation = await Conversation.findOne({
+    where: {
+      id: conversationIdNum,
+      [Op.or]: [{ user1Id: senderIdNum }, { user2Id: senderIdNum }]
+    }
+  });
+
+  if (!conversation) {
+    const error = new Error('Conversation not found or access denied');
+    error.statusCode = 404;
+    throw error;
+  }
+
   return Message.create({
-    conversationId: data.conversationId,
-    senderId,
-    message: data.message,
+    conversationId: conversationIdNum,
+    senderId: senderIdNum,
+    message: String(data.message || '').trim(),
     sentAt: new Date()
   });
 };

@@ -1,6 +1,6 @@
 import express from 'express';
 import { authGuard } from '../../middlewares/auth.middleware.js';
-import { getMatches, getPotentialMatches, getMatchDetails } from './match.controller.js';
+import { getMatches, getPotentialMatches, getPotentialMatchesByPreferences, getMatchDetails } from './match.controller.js';
 import { requireMonetizationFeature } from '../../middlewares/monetization.middleware.js';
 
 const router = express.Router();
@@ -105,6 +105,35 @@ const router = express.Router();
  *         description: Internal server error
  */
 router.get('/potential', authGuard, requireMonetizationFeature('basicSearch'), getPotentialMatches);
+
+/**
+ * @swagger
+ * /v1/matches/potential-by-preferences:
+ *   get:
+ *     summary: Get potential matches strictly based on saved partner preferences
+ *     tags: [Match]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *     responses:
+ *       200:
+ *         description: Partner-preference based potential matches retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/potential-by-preferences', authGuard, requireMonetizationFeature('basicSearch'), getPotentialMatchesByPreferences);
 
 /**
  * @swagger

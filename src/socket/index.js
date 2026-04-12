@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import {env} from '../config/env.js';
-import { sendIncomingCallPush } from '../services/pushNotification.service.js';
+import { sendIncomingCallPushFCM as sendIncomingCallPush } from '../services/pushNotification.service.js';
 import { getUserEntitlements } from '../modules/monetization/monetization.service.js';
 
 const onlineUsers = new Map();
@@ -78,12 +78,26 @@ export const initSocket = (server) => {
     const userId = String(socket.user.id);
     onlineUsers.set(userId, socket.id);
 
-    console.log(`🟢 User ${userId} connected`);
+    console.log(`🟢 User ${userId} connected | Socket: ${socket.id}`); 
 
     io.emit('online-users', [...onlineUsers.keys()]);
 
     socket.on('join-conversation', (conversationId) => {
       socket.join(`conversation_${conversationId}`);
+      
+      // Re-emit pending video invites for this user
+      for (const session of callSessions.values()) {
+        if (String(session.targetUserId) === userId && session.status === 'ringing' && String(session.conversationId) === String(conversationId)) {
+          const inviteData = {
+            callerId: session.callerId,
+            callerName: 'Someone', // TODO: fetch real name if needed
+            conversationId: session.conversationId,
+            sessionId: session.id,
+          };
+          socket.emit('video-call-invite', inviteData);
+          console.log(`🔄 Re-emitted pending invite ${session.id} for convo ${conversationId} to ${userId}`);
+        }
+      }
     });
 
     socket.on('send-message', (data) => {
@@ -100,18 +114,93 @@ export const initSocket = (server) => {
       socket.to(`conversation_${conversationId}`)
         .emit('typing-stop', { userId });
     });
+  
+socket.on('video-call-offer', ({ conversationId, offer, sessionId, targetUserId }) => {
+  console.log(`🎥 OFFER | From: ${socket.user.id} | Conv: ${conversationId} | Session: ${sessionId}`);
+  
+  let targetSocketId;
+  if (targetUserId) {
+    targetSocketId = onlineUsers.get(String(targetUserId));
+  } else {
+    const session = findPendingSession({ sessionId, callerId: socket.user.id, calleeId: null, conversationId });
+    targetSocketId = onlineUsers.get(String(session?.targetUserId || session?.callerId));
+  }
+  
+  if (!targetSocketId) {
+    console.log('🎥 OFFER no target socket');
+    return;
+  }
 
+  console.log(`🎥 📤 OFFER to ${targetSocketId}`);
+  io.to(targetSocketId).emit('video-call-offer', {
+    conversationId,
+    offer,
+    fromUserId: socket.user.id,
+    sessionId,
+  });
+});
+socket.on('video-call-answer', ({ conversationId, answer, sessionId, targetUserId }) => {
+  console.log(`🎥 ANSWER | From: ${socket.user.id} | Conv: ${conversationId} | Session: ${sessionId}`);
+  
+  let targetSocketId;
+  if (targetUserId) {
+    targetSocketId = onlineUsers.get(String(targetUserId));
+  } else {
+    const session = findPendingSession({ sessionId, callerId: null, calleeId: socket.user.id, conversationId });
+    targetSocketId = onlineUsers.get(String(session?.callerId));
+  }
+  
+  if (!targetSocketId) {
+    console.log('🎥 ANSWER no target socket');
+    return;
+  }
+
+  console.log(`🎥 📤 ANSWER to ${targetSocketId}`);
+  io.to(targetSocketId).emit('video-call-answer', {
+    conversationId,
+    answer,
+    fromUserId: socket.user.id,
+    sessionId,
+  });
+});
+socket.on('video-call-ice-candidate', ({ conversationId, sessionId, candidate, targetUserId }) => {
+  console.log(`🎥 ICE | From: ${socket.user.id} | Conv: ${conversationId} | Session: ${sessionId}`);
+  
+  let targetSocketId;
+  if (targetUserId) {
+    targetSocketId = onlineUsers.get(String(targetUserId));
+  } else {
+    const session = callSessions.get(String(sessionId)) || findPendingSession({ sessionId, conversationId });
+    targetSocketId = onlineUsers.get(String(session?.targetUserId || session?.callerId));
+  }
+  
+  if (!targetSocketId) {
+    console.log('🎥 ICE no target socket');
+    return;
+  }
+
+  io.to(targetSocketId).emit('video-call-ice-candidate', {
+    candidate,
+    conversationId,
+    fromUserId: socket.user.id,
+    sessionId,
+  });
+  console.log(`🎥 ✅ ICE to ${targetSocketId}`);
+});
     socket.on('video-call-invite', async ({ targetUserId, conversationId, callerName }) => {
+      console.log(`🎥 INVITE | Caller: ${userId} -> Target: ${targetUserId} | Conv: ${conversationId}`);
+      
       const targetId = String(targetUserId);
       const targetSocketId = onlineUsers.get(targetId);
+      console.log(`🎥 Target ${targetId} online: ${!!targetSocketId} | Socket: ${targetSocketId || 'NULL'}`);
+      console.log(`🎥 Active calls - Caller: ${activeCallByUser.has(userId)} Target: ${activeCallByUser.has(targetId)}`);
 
       if (activeCallByUser.has(userId)) {
-        socket.emit('video-call-busy', {
-          conversationId,
-          reason: 'CALLER_BUSY',
-        });
+        console.log('🎥 REJECT: Caller busy');
+        socket.emit('video-call-busy', { conversationId, reason: 'CALLER_BUSY' });
         return;
       }
+
 
       if (activeCallByUser.has(targetId)) {
         socket.emit('video-call-busy', {
@@ -122,39 +211,46 @@ export const initSocket = (server) => {
         return;
       }
 
-      const callerEntitlements = await getUserEntitlements(userId);
-      if (callerEntitlements.activePlan !== 'premium') {
-        socket.emit('video-call-upgrade-required', {
-          reason: 'CALLER_NOT_PREMIUM',
-          conversationId,
-        });
+      try {
+        const callerEnts = await getUserEntitlements(userId);
+        console.log(`🎥 Caller ${userId} plan: ${callerEnts.activePlan}`);
+        if (callerEnts.activePlan !== 'premium') {
+          console.log('🎥 REJECT: Caller not premium');
+          socket.emit('video-call-upgrade-required', { reason: 'CALLER_NOT_PREMIUM', conversationId });
+          return;
+        }
+
+        const targetEnts = await getUserEntitlements(targetId);
+        console.log(`🎥 Target ${targetId} plan: ${targetEnts.activePlan}`);
+        if (targetEnts.activePlan !== 'premium') {
+          console.log('🎥 REJECT: Target not premium');
+          socket.emit('video-call-unavailable', { targetUserId: targetId, conversationId, reason: 'TARGET_NOT_PREMIUM' });
+          return;
+        }
+      } catch (err) {
+        console.error('🎥 ERROR entitlements:', err);
+        socket.emit('video-call-error', { reason: 'ENTITLEMENTS_ERROR' });
         return;
       }
 
-      const targetEntitlements = await getUserEntitlements(targetId);
-      if (targetEntitlements.activePlan !== 'premium') {
-        socket.emit('video-call-unavailable', {
+
+      try {
+        await sendIncomingCallPush({
           targetUserId: targetId,
+          callerName: callerName || 'Someone',
           conversationId,
-          reason: 'TARGET_NOT_PREMIUM',
+          callerId: userId,
         });
-        return;
+        console.log('🎥 ✅ FCM push sent');
+      } catch (err) {
+        console.error('🎥 FCM push error:', err);
       }
 
-      await sendIncomingCallPush({
-        targetUserId: targetId,
-        callerName,
-        conversationId,
-        callerId: userId,
-      });
+// if (!targetSocketId) {
+//         socket.emit('video-call-unavailable', { targetUserId: targetId, conversationId });
+//         return;
+//       }
 
-      if (!targetSocketId) {
-        socket.emit('video-call-unavailable', {
-          targetUserId: targetId,
-          conversationId,
-        });
-        return;
-      }
 
       const sessionId = getSessionId({
         callerId: userId,
@@ -162,7 +258,7 @@ export const initSocket = (server) => {
         conversationId,
       });
 
-      const timeoutMs = 30000;
+const timeoutMs = 60000;
       const session = {
         id: sessionId,
         callerId: userId,
@@ -204,15 +300,19 @@ export const initSocket = (server) => {
       activeCallByUser.set(userId, sessionId);
       activeCallByUser.set(targetId, sessionId);
 
-      io.to(targetSocketId).emit('video-call-invite', {
+      const inviteData = {
         callerId: userId,
         callerName: callerName || 'Someone',
         conversationId,
         sessionId,
-      });
+      };
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('video-call-invite', inviteData);
+      }
+      io.to(`conversation_${conversationId}`).emit('video-call-invite', inviteData);
     });
 
-    socket.on('video-call-response', ({ callerId, conversationId, status, sessionId }) => {
+socket.on('video-call-response', ({ callerId, conversationId, status, sessionId }) => { 
       const callerSocketId = onlineUsers.get(String(callerId));
       if (!callerSocketId) return;
 

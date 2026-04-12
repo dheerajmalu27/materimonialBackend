@@ -277,6 +277,7 @@ router.post('/refresh-token', auth.refreshToken);
  * /v1/auth/send-otp:
  *   post:
  *     summary: Send OTP to user's mobile/email
+ *     deprecated: true
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -306,6 +307,7 @@ router.post('/send-otp', authGuard, otpSendLimiter, auth.sendOtp);
  * /v1/auth/verify-otp:
  *   post:
  *     summary: Verify OTP sent to user
+ *     deprecated: true
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -491,6 +493,7 @@ router.post('/change-password', authGuard, validate(changePasswordSchema), auth.
  * /v1/auth/me:
  *   get:
  *     summary: Get current user profile
+ *     deprecated: true
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []

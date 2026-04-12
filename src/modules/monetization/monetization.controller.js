@@ -1,6 +1,7 @@
 import {
   createPremiumOrder,
   getMonetizationConfig,
+  processRazorpayWebhook,
   getTodayInterestUsage,
   getUserEntitlements,
   verifyAndActivatePremium,
@@ -58,6 +59,23 @@ export const verifyPayment = async (req, res) => {
       success: true,
       data: result,
       message: 'Premium subscription activated successfully',
+    });
+  } catch (error) {
+    return handleError(res, error);
+  }
+};
+
+export const handleRazorpayWebhook = async (req, res) => {
+  try {
+    const signature = req.get('x-razorpay-signature');
+    const result = await processRazorpayWebhook({
+      rawBody: req.body,
+      signature,
+    });
+
+    return res.json({
+      success: true,
+      data: result,
     });
   } catch (error) {
     return handleError(res, error);

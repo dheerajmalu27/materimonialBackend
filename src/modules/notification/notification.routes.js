@@ -1,9 +1,9 @@
 import express from 'express';
 import { authGuard } from '../../middlewares/auth.middleware.js';
-import { registerPushToken } from './notification.controller.js';
+import { registerFCMToken } from './notification.controller.js';
 
 const router = express.Router();
 
-router.post('/push-token', authGuard, registerPushToken);
+router.post('/push-token', authGuard, registerFCMToken);
 
 export default router;

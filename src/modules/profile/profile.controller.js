@@ -37,7 +37,6 @@ export const getProfileCompletion = async (req, res) => {
 export const getMyProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log(userId)
     const profile = await profileService.getProfileByUserId(userId);
 
     return res.json({
@@ -60,7 +59,16 @@ export const updateMyProfile = async (req, res) => {
       userId,
       req.body
     );
-    logActivity({userId: req.user.id,action: 'PROFILE_UPDATE', description: 'Profile updated'});
+    await logActivity({
+      userId: req.user.id,
+      action: 'PROFILE_UPDATE',
+      description: {
+        type: 'profile',
+        event: 'profile_updated',
+      },
+      req,
+      markRequestAsLogged: true,
+    });
     return res.json({
       success: true,
       message: 'Profile updated successfully',

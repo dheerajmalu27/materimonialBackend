@@ -174,9 +174,10 @@ router.get('/conversations', authGuard, requireMonetizationFeature('basicMessagi
 
 /**
  * @swagger
- * /v1/chat/conversations/{id}:
+ * /v1/messages/conversations/{id}:
  *   get:
  *     summary: Get a specific conversation by ID
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -220,6 +221,7 @@ router.get('/conversations', authGuard, requireMonetizationFeature('basicMessagi
  *       500:
  *         description: Internal server error
  */
+// router.get('/conversations/:id', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.getConversationSchema), chat.getConversation);
 router.get('/chat/conversations/:id', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.getConversationSchema), chat.getConversation);
 router.delete('/conversations/:id', authGuard, requireMonetizationFeature('basicMessaging'), validate(chatValidation.deleteConversationSchema), chat.deleteConversation);
 
@@ -318,6 +320,7 @@ router.get('/conversations/:conversationId', authGuard, validate(chatValidation.
  * /v1/chat/messages/{id}:
  *   delete:
  *     summary: Delete a message
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -399,6 +402,7 @@ router.post('/messages/read', authGuard, validate(chatValidation.markReadSchema)
  * /v1/chat/messages/unread-count:
  *   get:
  *     summary: Get count of unread messages for the authenticated user
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -422,6 +426,7 @@ router.get('/messages/unread-count', authGuard, chat.unreadCount);
  * /v1/chat/typing/start:
  *   post:
  *     summary: Start typing indicator in a conversation
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -463,6 +468,7 @@ router.post('/typing/start', authGuard, validate(chatValidation.typingStartSchem
  * /v1/chat/typing/stop:
  *   post:
  *     summary: Stop typing indicator in a conversation
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
@@ -504,6 +510,7 @@ router.post('/typing/stop', authGuard, validate(chatValidation.typingStopSchema)
  * /v1/chat/online-users:
  *   get:
  *     summary: Get list of online users
+ *     deprecated: true
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []

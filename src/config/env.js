@@ -44,5 +44,9 @@ export const env = {
     premiumAdvancedSearch: process.env.MONETIZATION_PREMIUM_ADVANCED_SEARCH !== 'false',
     premiumVerifiedBadge: process.env.MONETIZATION_PREMIUM_VERIFIED_BADGE !== 'false',
     premiumBasicMessaging: process.env.MONETIZATION_PREMIUM_BASIC_MESSAGING !== 'false',
-  }
+  },
+
+  activity: {
+    retentionDays: parseInt(process.env.USER_ACTIVITY_RETENTION_DAYS || '180', 10),
+  },
 };

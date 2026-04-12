@@ -8,7 +8,8 @@ export const activityMiddleware = (action, description) => {
           userId: req.user.id,
           action,
           description,
-          req
+          req,
+          markRequestAsLogged: true,
         });
       }
     });

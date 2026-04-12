@@ -1,16 +1,16 @@
-import { setUserPushToken } from '../../services/pushNotification.service.js';
+import { setUserFCMToken } from '../../services/pushNotification.service.js';
 
-export const registerPushToken = async (req, res) => {
-  const { expoPushToken } = req.body || {};
+export const registerFCMToken = async (req, res) => {
+  const { fcmToken } = req.body || {};
 
-  if (!expoPushToken || typeof expoPushToken !== 'string') {
+  if (!fcmToken || typeof fcmToken !== 'string') {
     return res.status(400).json({
       success: false,
-      message: 'expoPushToken is required',
+      message: 'fcmToken is required',
     });
   }
 
-  await setUserPushToken(req.user.id, expoPushToken);
+  await setUserFCMToken(req.user.id, fcmToken);
 
   return res.json({
     success: true,

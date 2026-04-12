@@ -67,6 +67,11 @@ export default class UserProfile extends Model {
             }
           }
         },
+        biodataPdf: {
+          type: DataTypes.STRING,
+          field: 'biodata_pdf',
+          allowNull: true
+        },
         isOnline: {
           type: DataTypes.BOOLEAN,
           field: 'is_online',

@@ -2,15 +2,31 @@ import Interest from '../../models/interest.model.js';
 import { Op } from 'sequelize';
 import { sequelize } from '../../config/database.js';
 import { enforceInterestQuota } from '../monetization/monetization.service.js';
+import { sendInterestReceivedPush } from '../../services/pushNotification.service.js';
 
 export const sendInterest = async (senderId, receiverId) => {
+  console.log('sendInterest called with:', { senderId, receiverId });
   const quota = await enforceInterestQuota(senderId);
+  console.log('Quota result:', quota);
 
   const interest = await Interest.create({
     senderId,
     receiverId,
     status: 'sent'
   });
+  console.log('Interest created:', interest?.id);
+
+  // Send push notification to receiver
+  let pushResult;
+  try {
+    pushResult = await sendInterestReceivedPush({
+      targetUserId: receiverId,
+      senderId,
+    });
+    console.log('FCM push result:', pushResult);
+  } catch (err) {
+    console.error('FCM push error:', err);
+  }
 
   return {
     interest,
@@ -31,9 +47,14 @@ export const updateInterestStatus = async (senderId, receiverId, status) => {
 
 export const getSentInterests = async (userId, limit = 20, offset = 0) => {
   const interests = await sequelize.query(
-    `SELECT id, status, created_at, receiver_id, receiver_first_name, receiver_last_name, receiver_age, receiver_height, receiver_education, receiver_is_active, receiver_city, receiver_state, receiver_photo
-     FROM public.interests_with_user_details
-     WHERE sender_id = $1
+    `SELECT i.id, i.status, i.created_at, i.receiver_id, i.receiver_first_name, i.receiver_last_name,
+            i.receiver_age, i.receiver_height, i.receiver_education, i.receiver_is_active,
+            i.receiver_city, i.receiver_state, i.receiver_photo,
+            up.location AS receiver_profile_location,
+            up.occupation AS receiver_profile_occupation
+     FROM public.interests_with_user_details i
+     LEFT JOIN public.user_profiles up ON up.user_id = i.receiver_id
+     WHERE i.sender_id = $1
      ORDER BY created_at DESC
      LIMIT $2 OFFSET $3`,
     {
@@ -53,21 +74,28 @@ export const getSentInterests = async (userId, limit = 20, offset = 0) => {
   const totalCount = parseInt(totalCountResult[0].count);
 
   // Format response according to specification
-  const requests = interests.map(interest => ({
-    id: `${interest.id}`,
-    recipient: {
-      id: `${interest.receiver_id}`,
-      name: `${interest.receiver_first_name} ${interest.receiver_last_name}`,
-      age: interest.receiver_age,
-      location: `${interest.receiver_city || ''}, ${interest.receiver_state || ''}`.trim(),
-      occupation: '', // TODO: Add occupation field
+  const requests = interests.map(interest => {
+    const city = String(interest.receiver_city || '').trim();
+    const state = String(interest.receiver_state || '').trim();
+    const cityStateLocation = `${city}${city && state ? ', ' : ''}${state}`.trim();
+    const profileLocation = String(interest.receiver_profile_location || '').trim();
+
+    return {
+      id: `${interest.id}`,
+      recipient: {
+        id: `${interest.receiver_id}`,
+        name: `${interest.receiver_first_name} ${interest.receiver_last_name}`,
+        age: interest.receiver_age,
+        location: profileLocation || cityStateLocation,
+        occupation: String(interest.receiver_profile_occupation || '').trim(),
         height: interest.receiver_height || null,
         profileImage: interest.receiver_photo || null
-    },
-    message: 'Hi, I found your profile interesting. Would like to connect.', // Default message
-    timestamp: interest.created_at.toISOString(),
-    status: interest.status
-  }));
+      },
+      message: 'Hi, I found your profile interesting. Would like to connect.',
+      timestamp: interest.created_at.toISOString(),
+      status: interest.status
+    };
+  });
 
   return {
     success: true,

@@ -9,7 +9,7 @@ export const sequelize = new Sequelize(
     host: env.db.host,
     port: env.db.port,
     dialect: 'postgres',
-    logging: env.nodeEnv === 'development' ? console.log : false,
+    logging: env.nodeEnv === 'prod' ? console.log : false,
     pool: {
       max: 10,
       min: 0,

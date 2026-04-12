@@ -11,6 +11,7 @@ const router = express.Router();
  * /v1/blocks:
  *   post:
  *     summary: Block a user
+ *     deprecated: true
  *     tags: [Blocks]
  *     security:
  *       - bearerAuth: []
@@ -60,6 +61,7 @@ const router = express.Router();
  * /v1/blocks/{id}:
  *   delete:
  *     summary: Unblock a user
+ *     deprecated: true
  *     tags: [Blocks]
  *     security:
  *       - bearerAuth: []
@@ -97,6 +99,7 @@ const router = express.Router();
  * /v1/blocks:
  *   get:
  *     summary: Get list of blocked users
+ *     deprecated: true
  *     tags: [Blocks]
  *     security:
  *       - bearerAuth: []

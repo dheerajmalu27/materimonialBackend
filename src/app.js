@@ -7,6 +7,7 @@ import compression from 'compression';
 import routes from './routes/index.js';
 import { env } from './config/env.js';
 import { swaggerUi, specs } from './swagger.js';
+import { requestActivityMiddleware } from './middlewares/requestActivity.middleware.js';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 app.use(compression());
+app.use(`${env.apiPrefix}/monetization/payments/razorpay/webhook`, express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -34,6 +36,7 @@ app.get('/', (req, res) => {
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // BASE API PREFIX
+app.use(env.apiPrefix, requestActivityMiddleware());
 app.use(env.apiPrefix, routes);
 
 export default app;

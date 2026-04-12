@@ -386,6 +386,7 @@ router.get('/requests/received', authGuard, interest.received);
  * /v1/interaction/interests/mutual:
  *   get:
  *     summary: Get mutual interests (accepted by both parties)
+ *     deprecated: true
  *     tags: [Interactions]
  *     security:
  *       - bearerAuth: []
@@ -544,6 +545,7 @@ router.get('/shortlists', authGuard, shortlist.list);
  * /v1/interaction/profile-views:
  *   post:
  *     summary: Record a profile view
+ *     deprecated: true
  *     tags: [Interactions]
  *     security:
  *       - bearerAuth: []
@@ -585,6 +587,7 @@ router.post('/profile-views', authGuard, profileView.view);
  * /v1/interaction/profile-views:
  *   get:
  *     summary: Get profile views for the user
+ *     deprecated: true
  *     tags: [Interactions]
  *     security:
  *       - bearerAuth: []

@@ -193,8 +193,6 @@ export const logout = async () => true;
 
 /* REFRESH TOKEN */
 export const refreshToken = async (token) => {
-   console.log(token);
-   console.log(env.jwt.jwtSecret);
    const payload = jwt.verify(token, env.jwt.jwtSecret);
 
   return generateToken({ id: payload.id });
@@ -251,10 +249,6 @@ export const forgotPassword = async (email, type = 'EMAIL') => {
     : OTP_TYPES.RESET_PASSWORD_EMAIL;
 
   const otp = await createOtpForType(user.id, otpType);
-
-  if (env.nodeEnv !== 'production') {
-    console.log('Reset OTP:', otp);
-  }
 
   return { sent: true };
 };

@@ -26,7 +26,16 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const data = await loginUser(req.body);
-    logActivity({userId: data.user.id,action: 'LOGIN',description: 'User logged in',req});
+    await logActivity({
+      userId: data.user.id,
+      action: 'AUTH_LOGIN',
+      description: {
+        type: 'auth',
+        event: 'login_success',
+      },
+      req,
+      markRequestAsLogged: true,
+    });
     res.json({
       success: true,
       message: 'Login successful',

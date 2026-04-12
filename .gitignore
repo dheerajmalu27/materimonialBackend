@@ -113,3 +113,5 @@ playwright/.cache/
 # Miscellaneous
 *.tgz
 *.tar.gz
+
+src/config/firebaseServiceAccount.json

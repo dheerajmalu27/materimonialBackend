@@ -11,6 +11,7 @@ const router = express.Router();
  * /v1/partner-preference/me:
  *   get:
  *     summary: Get current user's partner preferences
+ *     deprecated: true
  *     tags: [Partner Preference]
  *     security:
  *       - bearerAuth: []
@@ -83,6 +84,7 @@ router.get('/me', authGuard, getMyPartnerPreference);
  * /v1/partner-preference/me:
  *   post:
  *     summary: Add or update partner preferences
+ *     deprecated: true
  *     tags: [Partner Preference]
  *     security:
  *       - bearerAuth: []

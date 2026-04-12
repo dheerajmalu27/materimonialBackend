@@ -20,6 +20,7 @@ import Shortlist from './shortlist.model.js';
 import Conversation from './conversation.model.js';
 import Message from './message.model.js';
 import UserPushToken from './userPushToken.model.js';
+import PaymentTransaction from './paymentTransaction.model.js';
 
 // Initialize models
 const models = {
@@ -42,6 +43,7 @@ const models = {
   Conversation: Conversation.init(sequelize),
   Message: Message.init(sequelize),
   UserPushToken: UserPushToken.init(sequelize),
+  PaymentTransaction: PaymentTransaction.init(sequelize),
 };
 
 // Setup associations

@@ -33,6 +33,42 @@ const upload = multer({
   }
 });
 
+const uploadBiodataPdf = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdfMime = file.mimetype === 'application/pdf';
+    const isPdfExt = ext === '.pdf';
+
+    if (isPdfMime || isPdfExt) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  }
+});
+
+const uploadBioDataMiddleware = (req, res, next) => {
+  uploadBiodataPdf.single('biodata')(req, res, (error) => {
+    if (!error) return next();
+
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Bio-data PDF must be 5 MB or less',
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Invalid file upload',
+    });
+  });
+};
+
 const router = express.Router();
 
 /**
@@ -40,6 +76,7 @@ const router = express.Router();
  * /v1/user/me:
  *   get:
  *     summary: Get current user information
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -81,11 +118,16 @@ router.get('/me', authGuard, (req, res) => {
   });
 });
 
+// Backward-compatible settings aliases
+router.get('/settings', authGuard, uc.getMySettings);
+router.put('/settings', authGuard, uc.updateMySettings);
+
 /**
  * @swagger
  * /v1/user/{id}:
  *   get:
  *     summary: Get user by ID
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -226,6 +268,7 @@ router.get('/profile/:id', authGuard, uc.getUserProfileById);
  * /v1/user/{id}:
  *   put:
  *     summary: Update user by ID
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -300,6 +343,7 @@ router.put('/:id', authGuard, uc.updateUserById);
  * /v1/user/{id}:
  *   delete:
  *     summary: Delete user by ID
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -496,6 +540,91 @@ router.post('/me/photos', authGuard, upload.array('photos', 6), uc.uploadProfile
 
 /**
  * @swagger
+ * /v1/user/me/biodata:
+ *   post:
+ *     summary: Upload or replace bio-data PDF (max 5 MB)
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               biodata:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Bio-data PDF uploaded successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bio-data PDF uploaded successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bioDataPdf:
+ *                       type: string
+ *                       example: "https://example.com/uploads/1/1700000000000.pdf"
+ *       400:
+ *         description: Invalid file, missing file, or file exceeds 5 MB
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/me/biodata', authGuard, uploadBioDataMiddleware, uc.uploadBioDataPdf);
+
+/**
+ * @swagger
+ * /v1/user/me/biodata:
+ *   delete:
+ *     summary: Delete current user's bio-data PDF
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bio-data PDF deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bio-data PDF deleted successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     bioDataPdf:
+ *                       type: string
+ *                       nullable: true
+ *                       example: null
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: No bio-data PDF found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/me/biodata', authGuard, uc.deleteBioDataPdf);
+
+/**
+ * @swagger
  * /v1/user/me/settings:
  *   get:
  *     summary: Get current user's settings
@@ -601,6 +730,7 @@ router.put('/me/settings', authGuard, uc.updateMySettings);
  * /v1/user/me/activity:
  *   get:
  *     summary: Get current user's activity log
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -642,6 +772,7 @@ router.get('/me/activity', authGuard, uc.getMyActivity);
  * /v1/user/me/deactivate:
  *   post:
  *     summary: Deactivate current user's account
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -671,6 +802,7 @@ router.post('/me/deactivate', authGuard, uc.deactivateAccount);
  * /v1/user/me/reactivate:
  *   post:
  *     summary: Reactivate current user's account
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -700,6 +832,7 @@ router.post('/me/reactivate', authGuard, uc.reactivateAccount);
  * /v1/users/me/homepage:
  *   get:
  *     summary: Get homepage profiles for current user
+ *     deprecated: true
  *     description: Returns recently added user profiles that match partner preferences and are in the same city (max 10 results)
  *     tags: [User]
  *     security:
@@ -770,6 +903,7 @@ router.get('/me/homepage', authGuard, uc.getHomePageProfiles);
  * /v1/user/me/recently-added:
  *   get:
  *     summary: Get recently added user profiles with pagination
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []
@@ -867,6 +1001,7 @@ router.get('/me/recently-added', authGuard, uc.getRecentlyAddedProfiles);
  * /v1/user/me/preference-matches:
  *   get:
  *     summary: Get preference match user profiles with pagination
+ *     deprecated: true
  *     tags: [User]
  *     security:
  *       - bearerAuth: []

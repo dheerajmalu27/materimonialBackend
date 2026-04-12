@@ -41,7 +41,6 @@ const bulkCreateWithSequenceRecovery = async (model, rows, tableName) => {
 
 /* ADMIN / PUBLIC */
 export const getUserById = async (id) => {
-  console.log('id'+id)
   return await User.findByPk(id, {
     attributes: { exclude: ['passwordHash'] },
     include: [{ model: UserProfile, as: 'profile' }]
@@ -99,6 +98,31 @@ export const updateMyProfile = async (userId, data) => {
         : hasValue(data?.personal?.income)
           ? data.personal.income
           : null;
+    const normalizedWorkLocation = hasValue(data?.professional?.workLocation)
+      ? data.professional.workLocation
+      : hasValue(data?.professional?.workingCountry)
+        ? data.professional.workingCountry
+        : hasValue(data?.professional?.location)
+          ? data.professional.location
+          : hasValue(data?.personal?.location)
+            ? data.personal.location
+            : hasValue(data.location)
+              ? data.location
+              : null;
+    const normalizedEmployer = hasValue(data?.professional?.employer)
+      ? data.professional.employer
+      : hasValue(data?.professional?.companyBusinessName)
+        ? data.professional.companyBusinessName
+        : hasValue(data?.professional?.companyOrBusiness)
+          ? data.professional.companyOrBusiness
+          : null;
+    const normalizedOccupation = hasValue(data?.professional?.occupation)
+      ? data.professional.occupation
+      : hasValue(data?.professional?.occupationType)
+        ? data.professional.occupationType
+        : hasValue(data?.personal?.occupation)
+          ? data.personal.occupation
+          : null;
     const normalizedLocation = hasValue(data?.personal?.location)
       ? data.personal.location
       : hasValue(data.location)
@@ -128,6 +152,9 @@ export const updateMyProfile = async (userId, data) => {
         profileData.profileImages = Array.isArray(data.personal.profileImages)
           ? JSON.stringify(data.personal.profileImages)
           : data.personal.profileImages;
+      }
+      if (data.personal.bioDataPdf !== undefined) {
+        profileData.biodataPdf = data.personal.bioDataPdf;
       }
 
       if (hasValue(data.personal.occupation)) {
@@ -159,17 +186,17 @@ export const updateMyProfile = async (userId, data) => {
     // Update UserProfession (sync annualIncome with profile.income)
     if (data.professional || hasValue(normalizedIncome)) {
       const professionData = { userId };
-      if (hasValue(data?.professional?.occupation)) {
-        professionData.occupationType = data.professional.occupation;
+      if (hasValue(normalizedOccupation)) {
+        professionData.occupationType = normalizedOccupation;
       }
       if (hasValue(normalizedIncome)) {
         professionData.annualIncome = normalizedIncome;
       }
-      if (hasValue(data?.professional?.workLocation)) {
-        professionData.workingCountry = data.professional.workLocation;
+      if (hasValue(normalizedWorkLocation)) {
+        professionData.workingCountry = normalizedWorkLocation;
       }
-      if (hasValue(data?.professional?.employer)) {
-        professionData.companyOrBusiness = data.professional.employer;
+      if (hasValue(normalizedEmployer)) {
+        professionData.companyOrBusiness = normalizedEmployer;
       }
 
       await UserProfession.upsert(professionData, { returning: false });
@@ -272,7 +299,6 @@ export const updateMyProfile = async (userId, data) => {
 
     return { success: true, message: 'Profile updated successfully' };
   } catch (error) {
-    console.log(error);
     throw new Error(`Failed to update profile: ${error.message}`);
   }
 };
@@ -331,7 +357,6 @@ export const getHomePageProfiles = async (userId) => {
 
   // Get current user's present address city
   const presentAddress = currentUser.addresses?.find(addr => addr.addressType === 'present' || addr.addressType === 'both');
-console.log(presentAddress);
   // Base where conditions for opposite gender and active users
   const baseWhereConditions = {
     id: { [Op.ne]: userId }, // Exclude current user
@@ -438,7 +463,6 @@ console.log(presentAddress);
       }).slice(0, 10);
     }
   }
-console.log(preferenceMatchUsers)
   // 3. SAME CITY USERS (opposite gender, same city as current user)
   let sameCityUsers = [];
   if (presentAddress) {
