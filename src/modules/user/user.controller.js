@@ -172,16 +172,19 @@ export const getMyProfile = async (req, res) => {
       addresses: formattedAddresses,
 
       // Family Information
-      family: {
-        fatherName: family?.fatherName || '',
-        fatherOccupation: family?.fatherOccupation || '',
-        motherName: family?.motherName || '',
-        motherOccupation: family?.motherOccupation || '',
-        siblings: family?.siblings || familyMeta.siblings || '',
-        familyType: family?.familyType || '',
-        familyValues: family?.familyValues || familyMeta.familyValues || '',
-        familyStatus: family?.familyStatus || familyMeta.familyStatus || ''
-      },
+        family: {
+          fatherName: family?.fatherName || '',
+          fatherMobile: family?.fatherMobile || '',
+          fatherOccupation: family?.fatherOccupation || '',
+          motherName: family?.motherName || '',
+          motherMobile: family?.motherMobile || '',
+          motherOccupation: family?.motherOccupation || '',
+          siblings: family?.siblings || familyMeta.siblings || '',
+          familyType: family?.familyType || '',
+          familyValues: family?.familyValues || familyMeta.familyValues || '',
+          familyStatus: family?.familyStatus || familyMeta.familyStatus || ''
+        },
+
 
       // Lifestyle
       lifestyle: {
@@ -314,14 +317,17 @@ export const updateMyProfile = async (req, res) => {
 
       family: {
         fatherName: family?.fatherName || '',
+        fatherMobile: family?.fatherMobile || '',
         fatherOccupation: family?.fatherOccupation || '',
         motherName: family?.motherName || '',
+        motherMobile: family?.motherMobile || '',
         motherOccupation: family?.motherOccupation || '',
         siblings: family?.siblings || familyMeta.siblings || '',
         familyType: family?.familyType || '',
         familyValues: family?.familyValues || familyMeta.familyValues || '',
         familyStatus: family?.familyStatus || familyMeta.familyStatus || ''
       },
+
 
       lifestyle: {
         diet: lifestyle?.diet || '',
@@ -629,15 +635,16 @@ export const getUserProfileById = async (req, res) => {
       // Family Information
       family: {
         fatherName: family?.fatherName || '',
+        fatherMobile: family?.fatherMobile || '',
         fatherOccupation: family?.fatherOccupation || '',
         motherName: family?.motherName || '',
+        motherMobile: family?.motherMobile || '',
         motherOccupation: family?.motherOccupation || '',
         siblings: family?.siblings || familyMeta.siblings || '',
         familyType: family?.familyType || '',
         familyValues: family?.familyValues || familyMeta.familyValues || '',
         familyStatus: family?.familyStatus || familyMeta.familyStatus || ''
       },
-
       // Lifestyle
       lifestyle: {
         diet: lifestyle?.diet || '',

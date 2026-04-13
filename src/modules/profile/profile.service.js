@@ -4,6 +4,7 @@ import User from '../../models/user.model.js';
 import UserProfile from '../../models/userProfile.model.js';
 import UserAddress from '../../models/userAddress.model.js';
 import UserEducation from '../../models/userEducation.model.js';
+import UserFamily from '../../models/userFamily.model.js';
 
 /**
  * Get full profile of logged-in user
@@ -23,6 +24,10 @@ export const getProfileByUserId = async (userId) => {
       {
         model: UserEducation,
         as: 'education',
+      },
+      {
+        model: UserFamily,
+        as: 'family'
       }
     ]
   });

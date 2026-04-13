@@ -48,8 +48,17 @@ export default class UserFamily extends Model {
         familyNativePlace: {
           type: DataTypes.TEXT,
           field: 'family_native_place'
+        },
+        fatherMobile: {
+          type: DataTypes.STRING,
+          field: 'father_mobile'
+        },
+        motherMobile: {
+          type: DataTypes.STRING,
+          field: 'mother_mobile'
         }
       },
+
       {
         sequelize,
         tableName: 'user_family',

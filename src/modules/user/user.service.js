@@ -218,13 +218,16 @@ export const updateMyProfile = async (userId, data) => {
         userId,
         fatherName: data.family.fatherName,
         fatherOccupation: data.family.fatherOccupation,
+        fatherMobile: data.family.fatherMobile,
         motherName: data.family.motherName,
         motherOccupation: data.family.motherOccupation,
+        motherMobile: data.family.motherMobile,
         familyType: data.family.familyType,
         siblings: data.family.siblings,
         familyValues: data.family.familyValues,
         familyStatus: data.family.familyStatus
       };
+
       await UserFamily.upsert(familyData, { returning: false });
     }
 
