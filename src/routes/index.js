@@ -12,6 +12,7 @@ import kundli from '../modules/kundli/kundli.routes.js';
 import masterRoutes from '../modules/master/master.routes.js';
 import monetizationRoutes from '../modules/monetization/monetization.routes.js';
 import notificationRoutes from '../modules/notification/notification.routes.js';
+import adminRoutes from '../modules/admin/admin.routes.js';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.use('/kundli', kundli);
 router.use('/master', masterRoutes);
 router.use('/monetization', monetizationRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/admin', adminRoutes);
 
 // Example route
 router.get('/health', (req, res) => {
