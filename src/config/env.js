@@ -23,8 +23,8 @@ export const env = {
   },
 
   razorpay: {
-    keyId: process.env.RAZORPAY_KEY_ID || '',
-    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_SfgZLWruNrsgWDWIvL',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || 'IAuZ1fRCteCgS28S5oV8icSJ123',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
     currency: process.env.RAZORPAY_CURRENCY || 'INR',
   },

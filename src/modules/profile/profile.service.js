@@ -5,13 +5,15 @@ import UserProfile from '../../models/userProfile.model.js';
 import UserAddress from '../../models/userAddress.model.js';
 import UserEducation from '../../models/userEducation.model.js';
 import UserFamily from '../../models/userFamily.model.js';
+import UserProfession from '../../models/userProfession.model.js';
+import { getUserEntitlements } from '../../modules/monetization/monetization.service.js';
 
 /**
  * Get full profile of logged-in user
  */
 export const getProfileByUserId = async (userId) => {
   const user = await User.findByPk(userId, {
-    attributes: ['id', 'email', 'mobile', 'gender'],
+    attributes: ['id', 'email', 'mobile', 'gender', 'isVerified'],
     include: [
       {
         model: UserProfile,
@@ -36,6 +38,10 @@ export const getProfileByUserId = async (userId) => {
     throw new Error('User not found');
   }
 
+  // ✅ Add premium status
+  const entitlements = await getUserEntitlements(userId);
+  user.isPremium = entitlements.activePlan === 'premium';
+console.log(user);
   return user;
 };
 
@@ -52,7 +58,7 @@ export const updateProfile = async (userId, payload) => {
       defaults: { user_id: userId }
     });
 
-  await profile.update({
+    await profile.update({
     first_name: payload.first_name,
     last_name: payload.last_name,
     dob: payload.dob,
@@ -63,8 +69,20 @@ export const updateProfile = async (userId, payload) => {
     religion: payload.religion,
     caste: payload.caste,
     mother_tongue: payload.mother_tongue,
+    occupation: payload.occupation,
     about_me: payload.about_me
   });
+
+  // ✅ SYNC occupation to user_profession.occupation_type
+  if (payload.occupation) {
+    const [profession] = await UserProfession.findOrCreate({
+      where: { user_id: userId },
+      defaults: { user_id: userId }
+    });
+    await profession.update({
+      occupation_type: payload.occupation
+    });
+  }
 
   // ------------------------
   // ADDRESS (OPTIONAL)

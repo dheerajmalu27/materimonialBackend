@@ -25,7 +25,7 @@ export default class User extends Model {
           field: 'password_hash'
         },
         gender: {
-          type: DataTypes.ENUM('male', 'female'),
+          type: DataTypes.STRING,
           allowNull: false
         },
         isActive: {

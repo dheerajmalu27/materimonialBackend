@@ -3,6 +3,7 @@ import * as service from './auth.service.js';
 import { logActivity } from '../../utils/activityLogger.js';
 export const register = async (req, res, next) => {
   try {
+    console.log(req.body);
     const user = await registerUser(req.body);
     res.status(201).json({
       success: true,

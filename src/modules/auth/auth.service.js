@@ -8,6 +8,7 @@ import { generateOTP } from '../../utils/otp.js';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import UserOtp from '../../models/userOtp.model.js';
+import * as userService from '../../modules/user/user.service.js';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
@@ -93,68 +94,40 @@ const createOtpForType = async (userId, type) => {
   return otp;
 };
 export const registerUser = async (payload) => {
-  const {
+  const { email, mobile, password, gender, profileData } = payload;
+
+  // No outer transaction - let updateMyProfile handle transactions internally
+  const existingUser = await User.findOne({
+    where: {
+      [Op.or]: [{ email }, { mobile }]
+    }
+  });
+
+  if (existingUser) {
+    throw new Error('Email or mobile already registered');
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
     email,
     mobile,
-    password,
+    passwordHash: hashedPassword,
     gender,
-
-    // Optional profile fields
-    firstName,
-    lastName,
-    dob,
-    birthTime,
-    heightCm,
-    weightKg
-  } = payload;
-
-  return await sequelize.transaction(async (t) => {
-    const existingUser = await User.findOne({
-      where: {
-        [Op.or]: [{ email }, { mobile }]
-      },
-      transaction: t
-    });
-
-    if (existingUser) {
-      throw new Error('Email or mobile already registered');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create(
-      {
-        email,
-        mobile,
-        passwordHash: hashedPassword,
-        gender,
-        isActive: true
-      },
-      { transaction: t }
-    );
-
-    // 🧾 Create profile with optional fields
-    await UserProfile.create(
-      {
-        userId: user.id,
-        firstName: firstName || null,
-        lastName: lastName || null,
-        dob: dob || null,
-        birthTime: birthTime || null,
-        heightCm: heightCm || null,
-        weightKg: weightKg || null,
-        phone: mobile || null
-      },
-      { transaction: t }
-    );
-
-    return {
-      id: user.id,
-      email: user.email,
-      mobile: user.mobile,
-      gender: user.gender
-    };
+    isActive: true
   });
+
+  // Use existing updateMyProfile logic for full profile data
+  if (profileData) {
+    await userService.updateMyProfile(user.id, profileData);
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    mobile: user.mobile,
+    gender: user.gender
+  };
 };
 
 export const loginUser = async ({ email, password }) => {

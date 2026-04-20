@@ -5,6 +5,7 @@ import { getShortlists } from '../interactions/shortlist.service.js';
 import fs from 'fs';
 import path from 'path';
 import UserProfile from '../../models/userProfile.model.js';
+import { getUserEntitlements } from '../monetization/monetization.service.js';
 
 const parseFamilyMeta = (family) => {
   const raw = family?.familyNativePlace;
@@ -59,10 +60,13 @@ export const getMyProfile = async (req, res) => {
   try {
     
     const userData = await service.getUserProfileById(req.user.id);
+    
+    const entitlements = await getUserEntitlements(req.user.id);
     const shortlists = await getShortlists(req.user.id);
     const shortlistedUserIds = shortlists.map((item) => String(item.shortlistedUserId));
     const user = req.user;
     const profile = userData.profile;
+  
     const addresses = userData.addresses || [];
     const education = userData.education || [];
     const lifestyle = userData.lifestyle;
@@ -120,6 +124,7 @@ export const getMyProfile = async (req, res) => {
       mobile: user.mobile || profile?.phone || '',
       gender: user.gender || '',
       isVerified: user.isVerified || false,
+      isPremium : entitlements.activePlan === 'premium',
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
@@ -523,6 +528,12 @@ export const getUserProfileById = async (req, res) => {
   try {
   
     const userData = await service.getUserProfileById(req.params.id);
+  // console.log(req.params.id);
+  //  console.log(userData.id);
+    // ✅ Add isPremium for other users
+    const entitlements = await getUserEntitlements(userData.id);
+    userData.isPremium = entitlements.activePlan === 'premium';
+    // console.log(userData.isPremium);
     const interestStatus = await getInterestStatus(req.user.id, userData.id);
  
 
@@ -582,6 +593,7 @@ export const getUserProfileById = async (req, res) => {
       mobile: userData.mobile || profile?.phone || '',
       gender: userData.gender,
       isVerified: userData.isVerified || false,
+      isPremium: userData.isPremium || false,
       isActive: userData.isActive,
       createdAt: userData.createdAt,
       updatedAt: userData.updatedAt,

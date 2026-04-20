@@ -18,6 +18,196 @@ import {
   buildProfileObject
 } from '../../utils/profileFormatter.js';
 
+export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null, filters = {}) => {
+  try {
+    // No PartnerPreference required - basic matching only
+
+    // Default basic age range
+    const DEFAULT_MIN_AGE = 21;
+    const DEFAULT_MAX_AGE = 40;
+
+    // 1️⃣ Build where conditions for candidates (same as original)
+    const candidateWhere = {
+      id: { [Op.ne]: userId },
+      isActive: true,
+      gender: { [Op.ne]: gender },
+    };
+
+    if (city) {
+      candidateWhere['$profile.city$'] = city;
+    }
+
+    // 2️⃣ Fetch candidates (same includes)
+    const candidates = await User.findAll({
+      where: candidateWhere,
+      include: [
+        {
+          model: UserProfile,
+          as: 'profile'
+        },
+        {
+          model: UserKundli,
+          as: 'kundli',
+          required: false
+        },
+        {
+          model: UserAddress,
+          as: 'addresses',
+          required: false,
+          where: {
+            addressType: { [Op.in]: ['present', 'both'] }
+          }
+        },
+        {
+          model: UserFamily,
+          as: 'family',
+          required: false
+        },
+        {
+          model: UserLifestyle,
+          as: 'lifestyle',
+          required: false
+        }
+      ],
+      attributes: {
+        include: [
+          [
+            literal(`(
+              SELECT COUNT(*)
+              FROM profile_views pv
+              WHERE pv.viewed_user_id = "User"."id"
+            )`),
+            'profileViews'
+          ]
+        ]
+      }
+    });
+
+    const matches = [];
+
+    const normalizeFilterValues = (values) =>
+      Array.isArray(values)
+        ? values.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    const selectedReligions = normalizeFilterValues(filters.religion);
+    const selectedCastes = normalizeFilterValues(filters.caste);
+    const selectedLocations = normalizeFilterValues(filters.location);
+    const selectedEducations = normalizeFilterValues(filters.education);
+    const selectedOccupations = normalizeFilterValues(filters.occupation);
+    const selectedIncomes = normalizeFilterValues(filters.income);
+
+    const hasAnyMatch = (value, selectedValues) => {
+      if (!selectedValues.length) return true;
+      const normalizedValue = String(value || '').trim().toLowerCase();
+      if (!normalizedValue) return false;
+      return selectedValues.some((selected) => normalizedValue.includes(selected));
+    };
+
+    const buildCandidateLocation = (candidate, profile) => {
+      const profileLocation = String(profile?.location || '').trim();
+      if (profileLocation) return profileLocation;
+
+      const primaryAddress = Array.isArray(candidate?.addresses) ? candidate.addresses[0] : null;
+      if (!primaryAddress) return '';
+
+      return [primaryAddress.city, primaryAddress.state, primaryAddress.country]
+        .filter(Boolean)
+        .join(', ');
+    };
+
+    // 3️⃣ Score candidates with basic logic (no strict preferences)
+    for (const candidate of candidates) {
+      const profile = candidate.profile;
+      if (!profile) continue;
+
+      const age = calculateAge(profile.dob);
+      const locationValue = buildCandidateLocation(candidate, profile);
+
+      // Apply basic filters from query params
+      if (!hasAnyMatch(locationValue, selectedLocations)) continue;
+      if (!hasAnyMatch(profile.religion, selectedReligions)) continue;
+      if (!hasAnyMatch(profile.caste, selectedCastes)) continue;
+      if (!hasAnyMatch(profile.education, selectedEducations)) continue;
+      if (!hasAnyMatch(profile.occupation, selectedOccupations)) continue;
+      if (!hasAnyMatch(profile.income, selectedIncomes)) continue;
+
+      let score = 0;
+
+      // 🎂 Basic age range (20 points)
+      if (age !== null && age >= DEFAULT_MIN_AGE && age <= DEFAULT_MAX_AGE) {
+        score += 20;
+      }
+
+      // 🛕 Religion match bonus (15)
+      if (selectedReligions.length === 0 || hasAnyMatch(profile.religion, selectedReligions)) {
+        score += 15;
+      }
+
+      // 📍 Location match (10)
+      if (selectedLocations.length === 0 || hasAnyMatch(locationValue, selectedLocations)) {
+        score += 10;
+      }
+
+      // 🎓 Education from filter (10)
+      if (selectedEducations.length === 0 || hasAnyMatch(profile.education, selectedEducations)) {
+        score += 10;
+      }
+
+      // 💼 Occupation from filter (10)
+      if (selectedOccupations.length === 0 || hasAnyMatch(profile.occupation, selectedOccupations)) {
+        score += 10;
+      }
+
+      // Mutual interests bonus (5)
+      const mutualInterests = await getMutualInterests(userId, candidate.id);
+      if (mutualInterests.length > 0) {
+        score += 5;
+      }
+
+      // ✅ Min threshold for basic matches
+      if (score >= 20) {
+        const family = candidate.family;
+        const lifestyle = candidate.lifestyle;
+        const addresses = candidate.addresses || [];
+
+        const interestStatus = await getInterestStatus(userId, candidate.id);
+        const distance = await calculateDistance(userId, candidate.id, addresses);
+
+        const profileObject = buildProfileObject({
+          user: candidate,
+          profile: profile,
+          family: family,
+          lifestyle: lifestyle,
+          compatibilityScore: score,
+          distance: distance,
+          mutualInterests: mutualInterests,
+          profileViews: candidate.dataValues?.profileViews || 0,
+          interestStatus: interestStatus,
+          age: age
+        });
+
+        matches.push(profileObject);
+      }
+    }
+
+    // 4️⃣ Sort, paginate (same as original)
+    matches.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+    const totalCount = matches.length;
+    const hasMore = totalCount > offset + limit;
+    const paginatedMatches = matches.slice(offset, offset + limit);
+
+    return {
+      matches: paginatedMatches,
+      totalCount,
+      hasMore
+    };
+  } catch (error) {
+    console.error('BASIC MATCH ERROR 👉', error);
+    throw error;
+  }
+};
+
 export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null, filters = {}) => {
   try {
     // 1️⃣ Get partner preference

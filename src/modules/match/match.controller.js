@@ -55,7 +55,7 @@ export const getPotentialMatches = async (req, res) => {
       income: toArray(req.query.income),
     };
 
-    const result = await matchService.getMatchSuggestions(userId, req.user.gender, limit, offset, city, filters);
+    const result = await matchService.getBasicMatchSuggestions(userId, req.user.gender, limit, offset, city, filters);
 
     return res.json({
       success: true,
