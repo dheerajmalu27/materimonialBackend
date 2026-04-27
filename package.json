@@ -4,15 +4,15 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "nodemon src/server.js",
+    "start": "node dist/server.js",
     "dev": "nodemon src/server.js",
-    "cleanup:user-activities": "node scripts/cleanup-user-activities.js"
+    "cleanup:user-activities": "node scripts/cleanup-user-activities.js",
+    "build": "swc src -d dist"
   },
   "author": "Dhiraj Malu",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -36,6 +36,9 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.30",
+    "esbuild": "^0.28.0",
     "nodemon": "^3.1.11"
   }
 }

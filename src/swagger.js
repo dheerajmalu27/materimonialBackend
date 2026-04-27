@@ -102,14 +102,6 @@ const options = {
               type: 'string',
               example: 'https://example.com/photos/short.jpg',
             },
-            default_photo: {
-              type: 'string',
-              example: 'https://example.com/photos/default.jpg',
-            },
-            short_photo: {
-              type: 'string',
-              example: 'https://example.com/photos/short.jpg',
-            },
             address: {
               type: 'object',
               properties: {

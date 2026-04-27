@@ -1,3 +1,4 @@
+import models from '../../models/index.js';
 import { Op, literal } from 'sequelize';
 import User from '../../models/user.model.js';
 import UserProfile from '../../models/userProfile.model.js';
@@ -18,7 +19,11 @@ import {
   buildProfileObject
 } from '../../utils/profileFormatter.js';
 
-export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null, filters = {}) => {
+
+
+
+
+export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offset = 0, city = null, filters = {}, searchQuery = '') => {
   try {
     // No PartnerPreference required - basic matching only
 
@@ -38,7 +43,7 @@ export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offse
     }
 
     // 2️⃣ Fetch candidates (same includes)
-    const candidates = await User.findAll({
+    let candidates = await User.findAll({
       where: candidateWhere,
       include: [
         {
@@ -97,13 +102,6 @@ export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offse
     const selectedOccupations = normalizeFilterValues(filters.occupation);
     const selectedIncomes = normalizeFilterValues(filters.income);
 
-    const hasAnyMatch = (value, selectedValues) => {
-      if (!selectedValues.length) return true;
-      const normalizedValue = String(value || '').trim().toLowerCase();
-      if (!normalizedValue) return false;
-      return selectedValues.some((selected) => normalizedValue.includes(selected));
-    };
-
     const buildCandidateLocation = (candidate, profile) => {
       const profileLocation = String(profile?.location || '').trim();
       if (profileLocation) return profileLocation;
@@ -115,6 +113,27 @@ export const getBasicMatchSuggestions = async (userId, gender, limit = 20, offse
         .filter(Boolean)
         .join(', ');
     };
+
+    if (searchQuery.trim()) {
+      const queryLower = searchQuery.trim().toLowerCase();
+      candidates = candidates.filter(candidate => {
+        const profile = candidate.profile;
+        console.log(profile)
+        if (!profile) return false;
+        const nameLower = `${profile.firstName || ''} ${profile.lastName || ''}`.toLowerCase();
+        const locationValue = buildCandidateLocation(candidate, profile).toLowerCase();
+        return nameLower.includes(queryLower) || locationValue.includes(queryLower);
+      });
+    }
+
+    const hasAnyMatch = (value, selectedValues) => {
+      if (!selectedValues.length) return true;
+      const normalizedValue = String(value || '').trim().toLowerCase();
+      if (!normalizedValue) return false;
+      return selectedValues.some((selected) => normalizedValue.includes(selected));
+    };
+
+   
 
     // 3️⃣ Score candidates with basic logic (no strict preferences)
     for (const candidate of candidates) {
@@ -494,3 +513,110 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
     throw error;
   }
 };
+
+
+export const getMutualMatches = async (userId) => {
+  const { Shortlist } = models;
+  
+  const userShortlists = await Shortlist.findAll({
+    where: { userId },
+    attributes: ['shortlistedUserId']
+  });
+
+  const shortlistedUserIds = userShortlists.map(s => s.shortlistedUserId);
+
+  const reverseShortlists = await Shortlist.findAll({
+    where: {
+      userId: shortlistedUserIds,
+      shortlistedUserId: userId
+    }
+  });
+
+  const mutualUserIds = reverseShortlists.map(s => s.shortlistedUserId);
+
+  const users = await User.findAll({
+    where: { 
+      id: mutualUserIds,
+      isActive: true
+    },
+    include: [{
+      model: UserProfile,
+      as: 'profile'
+    }]
+  });
+
+  return users.map(u => buildProfileObject({
+    user: u,
+    profile: u.profile,
+    compatibilityScore: 100, // Mutual match
+    mutualInterests: [],
+    distance: 0,
+    interestStatus: 'mutual',
+    age: calculateAge(u.profile.dob),
+    profileViews: 0
+  }));
+};
+
+export const likeProfile = async (userId, targetUserId) => {
+  const { Shortlist } = models;
+  
+  await Shortlist.upsert({
+    userId,
+    shortlistedUserId: targetUserId
+  });
+
+  return { success: true, message: 'Profile liked (shortlisted)' };
+};
+
+export const dislikeProfile = async (userId, targetUserId) => {
+  const { Shortlist } = models;
+  
+  const deleted = await Shortlist.destroy({
+    where: {
+      userId,
+      shortlistedUserId: targetUserId
+    }
+  });
+
+  if (deleted === 0) {
+    return { success: true, message: 'No shortlist entry to remove' };
+  }
+
+  return { success: true, deleted };
+};
+
+export const getMatchDetails = async (userId, profileUserId) => {
+  const candidate = await User.findOne({
+    where: { id: profileUserId, isActive: true },
+    include: [
+      { model: UserProfile, as: 'profile' },
+      { model: UserAddress, as: 'addresses', where: { addressType: { [Op.in]: ['present', 'both'] } }, required: false },
+      { model: UserFamily, as: 'family', required: false },
+      { model: UserLifestyle, as: 'lifestyle', required: false }
+    ]
+  });
+
+  if (!candidate) {
+    throw new Error('Profile not found');
+  }
+
+  const profile = candidate.profile;
+  const age = calculateAge(profile.dob);
+  const mutualInterests = await getMutualInterests(userId, profileUserId);
+  const interestStatus = await getInterestStatus(userId, profileUserId);
+  const distance = await calculateDistance(userId, profileUserId, candidate.addresses || []);
+
+  return buildProfileObject({
+    user: candidate,
+    profile,
+    family: candidate.family,
+    lifestyle: candidate.lifestyle,
+    compatibilityScore: 0, // Can add logic
+    distance,
+    mutualInterests,
+    profileViews: 0,
+    interestStatus,
+    age
+  });
+};
+

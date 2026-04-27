@@ -31,6 +31,7 @@ export const registerSchema = {
         weightKg: Joi.number().integer().optional(),
         occupation: Joi.string().optional(),
         maritalStatus: Joi.string().optional(),
+        motherTongue: Joi.string().optional(),
       }).optional(),
       
       religion: Joi.object({
