@@ -90,9 +90,17 @@ export default class User extends Model {
     foreignKey: 'user2_id',
     as: 'conversationsAsUser2'
   });
-  this.hasOne(models.UserPushToken, {
+   this.hasOne(models.UserPushToken, {
     foreignKey: 'user_id',
     as: 'pushToken'
+  });
+  this.hasMany(models.Interest, {
+    foreignKey: 'senderId',
+    as: 'sentInterests'
+  });
+  this.hasMany(models.Interest, {
+    foreignKey: 'receiverId',
+    as: 'receivedInterests'
   });
    }
 }

@@ -220,13 +220,13 @@ socket.on('video-call-ice-candidate', ({ conversationId, sessionId, candidate, t
           return;
         }
 
-        const targetEnts = await getUserEntitlements(targetId);
-        console.log(`🎥 Target ${targetId} plan: ${targetEnts.activePlan}`);
-        if (targetEnts.activePlan !== 'premium') {
-          console.log('🎥 REJECT: Target not premium');
-          socket.emit('video-call-unavailable', { targetUserId: targetId, conversationId, reason: 'TARGET_NOT_PREMIUM' });
-          return;
-        }
+        // const targetEnts = await getUserEntitlements(targetId);
+        // console.log(`🎥 Target ${targetId} plan: ${targetEnts.activePlan}`);
+        // if (targetEnts.activePlan !== 'premium') {
+        //   console.log('🎥 REJECT: Target not premium');
+        //   socket.emit('video-call-unavailable', { targetUserId: targetId, conversationId, reason: 'TARGET_NOT_PREMIUM' });
+        //   return;
+        // }
       } catch (err) {
         console.error('🎥 ERROR entitlements:', err);
         socket.emit('video-call-error', { reason: 'ENTITLEMENTS_ERROR' });

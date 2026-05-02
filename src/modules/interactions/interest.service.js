@@ -1,6 +1,8 @@
 import Interest from '../../models/interest.model.js';
+import User from '../../models/user.model.js';
+import UserProfile from '../../models/userProfile.model.js';
+import UserAddress from '../../models/userAddress.model.js';
 import { Op } from 'sequelize';
-import { sequelize } from '../../config/database.js';
 import { enforceInterestQuota } from '../monetization/monetization.service.js';
 import { sendInterestReceivedPush } from '../../services/pushNotification.service.js';
 
@@ -46,53 +48,82 @@ export const updateInterestStatus = async (senderId, receiverId, status) => {
 };
 
 export const getSentInterests = async (userId, limit = 20, offset = 0) => {
-  const interests = await sequelize.query(
-    `SELECT i.id, i.status, i.created_at, i.receiver_id, i.receiver_first_name, i.receiver_last_name,
-            i.receiver_age, i.receiver_height, i.receiver_education, i.receiver_is_active,
-            i.receiver_city, i.receiver_state, i.receiver_photo,
-            up.location AS receiver_profile_location,
-            up.occupation AS receiver_profile_occupation
-     FROM public.interests_with_user_details i
-     LEFT JOIN public.user_profiles up ON up.user_id = i.receiver_id
-     WHERE i.sender_id = $1
-     ORDER BY created_at DESC
-     LIMIT $2 OFFSET $3`,
-    {
-      bind: [userId, limit, offset],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
+  const { count, rows } = await Interest.findAndCountAll({
+    where: { senderId: userId },
+    include: [
+      {
+        model: User,
+        as: 'receiver',
+        attributes: ['id', 'email', 'isActive'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: [
+              'firstName',
+              'lastName',
+              'dob',
+              'heightCm',
+              'education',
+              'location',
+              'occupation',
+              'profileImage',
+              'profileImages'
+            ]
+          },
+          {
+            model: UserAddress,
+            as: 'addresses',
+            attributes: ['city', 'state'],
+            where: {
+              addressType: { [Op.in]: ['present', 'both'] }
+            },
+            required: false
+          }
+        ]
+      }
+    ],
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset
+  });
 
-  // Get total count
-  const totalCountResult = await sequelize.query(
-    `SELECT COUNT(*) as count FROM public.interests_with_user_details WHERE sender_id = $1`,
-    {
-      bind: [userId],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
-  const totalCount = parseInt(totalCountResult[0].count);
+  const requests = rows.map((interest) => {
+    const receiver = interest.receiver;
+    const profile = receiver?.profile;
+    const addresses = receiver?.addresses || [];
+    const primaryAddress = addresses[0];
 
-  // Format response according to specification
-  const requests = interests.map(interest => {
-    const city = String(interest.receiver_city || '').trim();
-    const state = String(interest.receiver_state || '').trim();
+    const city = String(primaryAddress?.city || '').trim();
+    const state = String(primaryAddress?.state || '').trim();
     const cityStateLocation = `${city}${city && state ? ', ' : ''}${state}`.trim();
-    const profileLocation = String(interest.receiver_profile_location || '').trim();
+    const profileLocation = String(profile?.location || '').trim();
+
+    // Calculate age from dob
+    let age = null;
+    if (profile?.dob) {
+      const birthDate = new Date(profile.dob);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
 
     return {
       id: `${interest.id}`,
       recipient: {
-        id: `${interest.receiver_id}`,
-        name: `${interest.receiver_first_name} ${interest.receiver_last_name}`,
-        age: interest.receiver_age,
+        id: `${receiver?.id}`,
+        name: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim(),
+        age,
         location: profileLocation || cityStateLocation,
-        occupation: String(interest.receiver_profile_occupation || '').trim(),
-        height: interest.receiver_height || null,
-        profileImage: interest.receiver_photo || null
+        occupation: String(profile?.occupation || '').trim(),
+        height: profile?.heightCm || null,
+        profileImage: profile?.profileImage || null
       },
       message: 'Hi, I found your profile interesting. Would like to connect.',
-      timestamp: interest.created_at.toISOString(),
+      timestamp: interest.createdAt ? new Date(interest.createdAt).toISOString() : null,
       status: interest.status
     };
   });
@@ -101,8 +132,8 @@ export const getSentInterests = async (userId, limit = 20, offset = 0) => {
     success: true,
     data: {
       requests,
-      totalCount,
-      hasMore: offset + limit < totalCount
+      totalCount: count,
+      hasMore: offset + limit < count
     }
   };
 };
@@ -111,46 +142,60 @@ export const getReceivedInterests = async (userId, limit = 20, offset = 0) => {
   const parsedLimit = Number.isFinite(limit) ? Math.max(1, limit) : 20;
   const parsedOffset = Number.isFinite(offset) ? Math.max(0, offset) : 0;
 
-  const interests = await sequelize.query(
-    `SELECT id, status, created_at, sender_id, sender_first_name, sender_last_name, sender_age,
-         sender_height, sender_education, sender_city, sender_state, sender_photo,
-         up.location AS sender_profile_location,
-         up.religion AS sender_religion,
-         up.caste AS sender_caste,
-         up.height_cm AS sender_profile_height,
-         up.education AS sender_profile_education,
-         up.occupation AS sender_occupation,
-         up.about_me AS sender_bio,
-         up.profile_image AS sender_profile_image,
-         up.profile_images AS sender_profile_images
-       FROM public.interests_with_user_details i
-       LEFT JOIN public.user_profiles up ON up.user_id = i.sender_id
-       WHERE receiver_id = $1
-     ORDER BY created_at DESC
-     LIMIT $2 OFFSET $3`,
-    {
-      bind: [userId, parsedLimit, parsedOffset],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
+  const { count, rows } = await Interest.findAndCountAll({
+    where: { receiverId: userId },
+    include: [
+      {
+        model: User,
+        as: 'sender',
+        attributes: ['id', 'email', 'isActive'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: [
+              'firstName',
+              'lastName',
+              'dob',
+              'heightCm',
+              'education',
+              'location',
+              'occupation',
+              'aboutMe',
+              'religion',
+              'caste',
+              'profileImage',
+              'profileImages',
+              'motherTongue'
+            ]
+          },
+          {
+            model: UserAddress,
+            as: 'addresses',
+            attributes: ['city', 'state'],
+            where: {
+              addressType: { [Op.in]: ['present', 'both'] }
+            },
+            required: false
+          }
+        ]
+      }
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: parsedLimit,
+    offset: parsedOffset
+  });
 
-  const totalCountResult = await sequelize.query(
-    `SELECT COUNT(*) as count
-     FROM public.interests_with_user_details
-     WHERE receiver_id = $1`,
-    {
-      bind: [userId],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
+  const matches = rows.map((interest) => {
+    const sender = interest.sender;
+    const profile = sender?.profile;
+    const addresses = sender?.addresses || [];
+    const primaryAddress = addresses[0];
 
-  const totalCount = parseInt(totalCountResult[0].count, 10) || 0;
-
-  const matches = interests.map((interest) => {
     let profileImages = [];
-    if (typeof interest.sender_profile_images === 'string' && interest.sender_profile_images.trim()) {
+    if (typeof profile?.profileImages === 'string' && profile.profileImages.trim()) {
       try {
-        const parsedImages = JSON.parse(interest.sender_profile_images);
+        const parsedImages = JSON.parse(profile.profileImages);
         if (Array.isArray(parsedImages)) {
           profileImages = parsedImages.filter(Boolean).map((image) => String(image));
         }
@@ -159,32 +204,45 @@ export const getReceivedInterests = async (userId, limit = 20, offset = 0) => {
       }
     }
 
-    const city = String(interest.sender_city || '').trim();
-    const state = String(interest.sender_state || '').trim();
+    const city = String(primaryAddress?.city || '').trim();
+    const state = String(primaryAddress?.state || '').trim();
     const cityStateLocation = `${city}${city && state ? ', ' : ''}${state}`.trim();
-    const profileLocation = String(interest.sender_profile_location || '').trim();
+    const profileLocation = String(profile?.location || '').trim();
     const location = profileLocation || cityStateLocation;
-    const firstName = String(interest.sender_first_name || '').trim();
-    const lastName = String(interest.sender_last_name || '').trim();
+
+    const firstName = String(profile?.firstName || '').trim();
+    const lastName = String(profile?.lastName || '').trim();
     const displayName = `${firstName}${firstName && lastName ? ' ' : ''}${lastName}`.trim() || 'Unknown';
+
     const profileImage = String(
-      interest.sender_profile_image
+      profile?.profileImage
       || (profileImages.length > 0 ? profileImages[0] : '')
-      || interest.sender_photo
       || ''
     );
 
+    // Calculate age from dob
+    let age = 0;
+    if (profile?.dob) {
+      const birthDate = new Date(profile.dob);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+    }
+
     return {
-      id: String(interest.sender_id),
+      id: String(sender?.id),
       name: displayName,
-      age: Number(interest.sender_age || 0),
+      age: Number(age || 0),
       location: location || null,
-      occupation: String(interest.sender_occupation || '').trim(),
-      bio: String(interest.sender_bio || '').trim(),
-      religion: String(interest.sender_religion || '').trim(),
-      caste: String(interest.sender_caste || '').trim(),
-      height: interest.sender_profile_height || interest.sender_height || null,
-      education: String(interest.sender_profile_education || interest.sender_education || '').trim(),
+      occupation: String(profile?.occupation || '').trim(),
+      bio: String(profile?.aboutMe || '').trim(),
+      religion: String(profile?.religion || '').trim(),
+      caste: String(profile?.caste || '').trim(),
+      height: profile?.heightCm || null,
+      education: String(profile?.education || '').trim(),
       profileImages: profileImages.length > 0 ? profileImages : (profileImage ? [profileImage] : []),
       profileImage,
       compatibilityScore: 0,
@@ -194,12 +252,12 @@ export const getReceivedInterests = async (userId, limit = 20, offset = 0) => {
       mutualInterests: [],
       profileViews: 0,
       isOnline: false,
-      motherTongue: '',
+      motherTongue: String(profile?.motherTongue || '').trim(),
       interestStatus: interest.status,
       interestIsSender: false,
       interestId: String(interest.id),
       requestId: `${interest.id}`,
-      timestamp: interest.created_at ? new Date(interest.created_at).toISOString() : null,
+      timestamp: interest.createdAt ? new Date(interest.createdAt).toISOString() : null,
       message: interest.message || 'Hi, I found your profile interesting. Would like to connect.'
     };
   });
@@ -209,49 +267,160 @@ export const getReceivedInterests = async (userId, limit = 20, offset = 0) => {
     data: {
       matches,
       requests: matches,
-      totalCount,
-      hasMore: parsedOffset + parsedLimit < totalCount
+      totalCount: count,
+      hasMore: parsedOffset + parsedLimit < count
     }
   };
 };
 
 export const getMutualInterests = async (userId) => {
   // Get interests where user is sender and status is accepted (accepted by receiver)
-  const acceptedByReceiver = await sequelize.query(
-    `SELECT id, status, created_at, receiver_id, receiver_first_name, receiver_last_name, receiver_age, receiver_height, receiver_education, receiver_is_active, receiver_city, receiver_state, receiver_photo
-     FROM public.interests_with_user_details
-     WHERE sender_id = $1 AND status = 'accepted'`,
-    {
-      bind: [userId],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
+  const acceptedByReceiver = await Interest.findAll({
+    where: {
+      senderId: userId,
+      status: 'accepted'
+    },
+    include: [
+      {
+        model: User,
+        as: 'receiver',
+        attributes: ['id'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: [
+              'firstName',
+              'lastName',
+              'dob',
+              'heightCm',
+              'education',
+              'profileImage'
+            ]
+          },
+          {
+            model: UserAddress,
+            as: 'addresses',
+            attributes: ['city', 'state'],
+            where: {
+              addressType: { [Op.in]: ['present', 'both'] }
+            },
+            required: false
+          }
+        ]
+      }
+    ],
+    order: [['createdAt', 'DESC']]
+  });
 
   // Get interests where user is receiver and status is accepted (accepted by me)
-  const acceptedByMe = await sequelize.query(
-    `SELECT id, status, created_at, sender_id, sender_first_name, sender_last_name, sender_age, sender_height, sender_education, sender_is_active, sender_city, sender_state, sender_photo
-     FROM public.interests_with_user_details
-     WHERE receiver_id = $1 AND status = 'accepted'`,
-    {
-      bind: [userId],
-      type: sequelize.QueryTypes.SELECT
-    }
-  );
+  const acceptedByMe = await Interest.findAll({
+    where: {
+      receiverId: userId,
+      status: 'accepted'
+    },
+    include: [
+      {
+        model: User,
+        as: 'sender',
+        attributes: ['id'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: [
+              'firstName',
+              'lastName',
+              'dob',
+              'heightCm',
+              'education',
+              'profileImage'
+            ]
+          },
+          {
+            model: UserAddress,
+            as: 'addresses',
+            attributes: ['city', 'state'],
+            where: {
+              addressType: { [Op.in]: ['present', 'both'] }
+            },
+            required: false
+          }
+        ]
+      }
+    ],
+    order: [['createdAt', 'DESC']]
+  });
 
-  // Combine results with appropriate labels
-  const mutualInterests = [
-    ...acceptedByReceiver.map(interest => ({
-      ...interest,
-      accepted_by: 'user' // accepted by the receiver (other user)
-    })),
-    ...acceptedByMe.map(interest => ({
-      ...interest,
-      accepted_by: 'me' // accepted by me (current user)
-    }))
-  ];
+  // Helper to calculate age
+  const calculateAge = (dob) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Format acceptedByReceiver results
+  const receiverResults = acceptedByReceiver.map((interest) => {
+    const receiver = interest.receiver;
+    const profile = receiver?.profile;
+    const addresses = receiver?.addresses || [];
+    const primaryAddress = addresses[0];
+
+    return {
+      id: interest.id,
+      status: interest.status,
+      created_at: interest.createdAt,
+      receiver_id: receiver?.id,
+      receiver_first_name: profile?.firstName,
+      receiver_last_name: profile?.lastName,
+      receiver_age: calculateAge(profile?.dob),
+      receiver_height: profile?.heightCm,
+      receiver_education: profile?.education,
+      receiver_is_active: receiver?.isActive,
+      receiver_city: primaryAddress?.city,
+      receiver_state: primaryAddress?.state,
+      receiver_photo: profile?.profileImage,
+      accepted_by: 'user'
+    };
+  });
+
+  // Format acceptedByMe results
+  const meResults = acceptedByMe.map((interest) => {
+    const sender = interest.sender;
+    const profile = sender?.profile;
+    const addresses = sender?.addresses || [];
+    const primaryAddress = addresses[0];
+
+    return {
+      id: interest.id,
+      status: interest.status,
+      created_at: interest.createdAt,
+      sender_id: sender?.id,
+      sender_first_name: profile?.firstName,
+      sender_last_name: profile?.lastName,
+      sender_age: calculateAge(profile?.dob),
+      sender_height: profile?.heightCm,
+      sender_education: profile?.education,
+      sender_is_active: sender?.isActive,
+      sender_city: primaryAddress?.city,
+      sender_state: primaryAddress?.state,
+      sender_photo: profile?.profileImage,
+      accepted_by: 'me'
+    };
+  });
+
+  // Combine results
+  const mutualInterests = [...receiverResults, ...meResults];
 
   return {
     success: true,
     data: mutualInterests
   };
 };
+

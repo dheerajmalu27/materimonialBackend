@@ -19,7 +19,7 @@ const handleError = (res, error) => {
 
 export const getConfig = async (req, res) => {
   try {
-    const config = getMonetizationConfig();
+    const config =await getMonetizationConfig();
     const entitlements = await getUserEntitlements(req.user.id);
     const usedToday = await getTodayInterestUsage(req.user.id);
 
@@ -42,7 +42,8 @@ export const getConfig = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const result = await createPremiumOrder(req.user.id);
+    const { planCode } = req.body || {};
+    const result = await createPremiumOrder(req.user.id, planCode);
     return res.json({
       success: true,
       data: result,
@@ -54,7 +55,8 @@ export const createOrder = async (req, res) => {
 
 export const verifyPayment = async (req, res) => {
   try {
-    const result = await verifyAndActivatePremium(req.user.id, req.body);
+    const { planCode } = req.body || {};
+    const result = await verifyAndActivatePremium(req.user.id, req.body, planCode);
     return res.json({
       success: true,
       data: result,

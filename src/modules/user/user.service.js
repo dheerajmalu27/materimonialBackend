@@ -14,29 +14,14 @@ import { sequelize } from '../../models/index.js';
 import { Op } from 'sequelize';
 import { buildProfileObject, getMutualInterests, getInterestStatus, calculateDistance } from '../../utils/profileFormatter.js';
 
-const reseedIdSequence = async (tableName, idColumn = 'id') => {
-  const quotedTable = `public."${tableName}"`;
-  const quotedColumn = `"${idColumn}"`;
-  await sequelize.query(
-    `SELECT setval(pg_get_serial_sequence('${quotedTable}', '${idColumn}'), COALESCE(MAX(${quotedColumn}), 0) + 1, false) FROM ${quotedTable};`
-  );
-};
-
-const bulkCreateWithSequenceRecovery = async (model, rows, tableName) => {
-  try {
-    await model.bulkCreate(rows);
-  } catch (error) {
-    const isIdUniqueViolation =
-      error?.name === 'SequelizeUniqueConstraintError' &&
-      (error?.fields?.id !== undefined || error?.original?.constraint?.toLowerCase().includes('_pkey'));
-
-    if (!isIdUniqueViolation) {
-      throw error;
-    }
-
-    await reseedIdSequence(tableName, 'id');
-    await model.bulkCreate(rows);
-  }
+const bulkCreateWithSequenceRecovery = async (
+  model,
+  records,
+  transaction
+) => {
+  return model.bulkCreate(records, {
+    transaction
+  });
 };
 
 /* ADMIN / PUBLIC */
@@ -63,7 +48,12 @@ export const getMyProfile = async (userId) => {
   return await UserProfile.findOne({ where: { userId } });
 };
 
-export const updateMyProfile = async (userId, data) => {
+
+
+export const updateMyProfile = async (userId, data,externalTransaction = null) => {
+  console.log(data)
+  const transaction = externalTransaction || await sequelize.transaction();
+
   try {
     const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
     const normalizeDateOnly = (value) => {
@@ -180,7 +170,8 @@ export const updateMyProfile = async (userId, data) => {
       profileData.manglik = data.religion.manglik;
     }
     if (Object.keys(profileData).length > 0) {
-      await UserProfile.upsert({ userId, ...profileData }, { returning: false });
+      console.log(profileData);
+      await UserProfile.upsert({ userId, ...profileData },  { returning: false, transaction });
     }
 
     // Update UserProfession (sync annualIncome with profile.income)
@@ -199,7 +190,7 @@ export const updateMyProfile = async (userId, data) => {
         professionData.companyOrBusiness = normalizedEmployer;
       }
 
-      await UserProfession.upsert(professionData, { returning: false });
+      await UserProfession.upsert(professionData,  { returning: false, transaction });
     }
 
     // Update top-level user fields like mobile/email (sync mobile with profile.phone)
@@ -228,7 +219,7 @@ export const updateMyProfile = async (userId, data) => {
         familyStatus: data.family.familyStatus
       };
 
-      await UserFamily.upsert(familyData, { returning: false });
+      await UserFamily.upsert(familyData,  { returning: false, transaction });
     }
 
     // Update UserLifestyle
@@ -241,12 +232,15 @@ export const updateMyProfile = async (userId, data) => {
         hobbies: Array.isArray(data.lifestyle.hobbies) ? data.lifestyle.hobbies.join(',') : data.lifestyle.hobbies,
         interests: Array.isArray(data.lifestyle.interests) ? data.lifestyle.interests.join(',') : data.lifestyle.interests
       };
-      await UserLifestyle.upsert(lifestyleData, { returning: false });
+      await UserLifestyle.upsert(lifestyleData,  { returning: false, transaction });
     }
 
     // Update UserAddress (delete existing and insert new)
     if (data.addresses && Array.isArray(data.addresses)) {
-      await UserAddress.destroy({ where: { userId } });
+          await UserEducation.destroy({
+          where: { userId },
+          transaction
+        });
       const addressInserts = data.addresses.map(addr => ({
         userId,
         addressType: addr.type,
@@ -256,13 +250,20 @@ export const updateMyProfile = async (userId, data) => {
         pincode: addr.pincode
       }));
       if (addressInserts.length > 0) {
-        await bulkCreateWithSequenceRecovery(UserAddress, addressInserts, 'user_addresses');
+        await bulkCreateWithSequenceRecovery(
+        UserAddress,
+        addressInserts,
+        transaction
+      );
       }
     }
 
     // Update UserEducation (delete existing and insert new)
     if (data.education && Array.isArray(data.education)) {
-      await UserEducation.destroy({ where: { userId } });
+        await UserEducation.destroy({
+          where: { userId },
+          transaction
+        });
       const educationInserts = data.education.map(edu => ({
         userId,
         qualification: edu.degree,
@@ -272,7 +273,11 @@ export const updateMyProfile = async (userId, data) => {
         highest: edu.highest || false
       }));
       if (educationInserts.length > 0) {
-        await bulkCreateWithSequenceRecovery(UserEducation, educationInserts, 'user_education');
+        await bulkCreateWithSequenceRecovery(
+        UserEducation,
+        educationInserts,
+        transaction
+        );
       }
     }
 
@@ -292,16 +297,24 @@ export const updateMyProfile = async (userId, data) => {
         gan: data.kundli.gan || null,
         nadi: data.kundli.nadi || null
       };
-      await UserKundli.upsert(kundliData, { returning: false });
+      await UserKundli.upsert(kundliData, { returning: false,transaction });
     }
 
     // Update PartnerPreference
     if (data.partnerPreferences) {
-      await PartnerPreference.upsert({ userId, ...data.partnerPreferences }, { returning: false });
+      await PartnerPreference.upsert({ userId, ...data.partnerPreferences }, { returning: false, transaction });
     }
+    
+    if (!externalTransaction) {
+          await transaction.commit();
+        }
 
     return { success: true, message: 'Profile updated successfully' };
   } catch (error) {
+    
+    if (!externalTransaction) {
+      await transaction.rollback();
+    }
     throw new Error(`Failed to update profile: ${error.message}`);
   }
 };

@@ -32,18 +32,21 @@ export const env = {
   monetization: {
     freeDailyInterestsLimit: parseInt(process.env.MONETIZATION_FREE_DAILY_INTERESTS_LIMIT || '5', 10),
     freeDailyMessagesLimit: parseInt(process.env.MONETIZATION_FREE_DAILY_MESSAGES_LIMIT || '5', 10),
-    freeUnlimitedInterests: process.env.MONETIZATION_FREE_UNLIMITED_INTERESTS === 'true',
+    freeUnlimitedInterests: process.env.MONETIZATION_FREE_UNLIMITED_INTERESTS === 'false',
     freeAdvancedSearch: process.env.MONETIZATION_FREE_ADVANCED_SEARCH === 'true',
     freeVerifiedBadge: process.env.MONETIZATION_FREE_VERIFIED_BADGE === 'true',
     freeBasicMessaging: process.env.MONETIZATION_FREE_BASIC_MESSAGING !== 'false',
     freeLimitedSearch: process.env.MONETIZATION_FREE_LIMITED_SEARCH !== 'false',
 
-    premiumYearlyPriceInr: parseInt(process.env.MONETIZATION_PREMIUM_YEARLY_PRICE_INR || '1200', 10),
+premiumYearlyPriceInr: parseInt(process.env.MONETIZATION_PREMIUM_YEARLY_PRICE_INR || '1200', 10),
     premiumDurationDays: parseInt(process.env.MONETIZATION_PREMIUM_DURATION_DAYS || '365', 10),
     premiumUnlimitedInterests: process.env.MONETIZATION_PREMIUM_UNLIMITED_INTERESTS !== 'false',
     premiumAdvancedSearch: process.env.MONETIZATION_PREMIUM_ADVANCED_SEARCH !== 'false',
     premiumVerifiedBadge: process.env.MONETIZATION_PREMIUM_VERIFIED_BADGE !== 'false',
     premiumBasicMessaging: process.env.MONETIZATION_PREMIUM_BASIC_MESSAGING !== 'false',
+
+    diamond3YearPriceInr: parseInt(process.env.MONETIZATION_DIAMOND_3YEAR_PRICE_INR || '2500', 10),
+    diamondDurationDays: parseInt(process.env.MONETIZATION_DIAMOND_DURATION_DAYS || '1095', 10),
   },
 
   activity: {

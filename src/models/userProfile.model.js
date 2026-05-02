@@ -11,14 +11,20 @@ export default class UserProfile extends Model {
         },
         firstName: DataTypes.STRING,
         lastName: DataTypes.STRING,
-        dob: DataTypes.DATEONLY,
+        dob: {
+          type: DataTypes.DATEONLY,
+          field: 'dob',
+           allowNull: true
+        },
         birthTime: {
-          type: DataTypes.TIME,
-          field: 'birth_time'
+          type: DataTypes.STRING,
+          field: 'birth_time',
+           allowNull: true
         },
         heightCm: {
           type: DataTypes.INTEGER,
-          field: 'height_cm'
+          field: 'height_cm',
+           allowNull: true
         },
         weightKg: {
           type: DataTypes.INTEGER,
@@ -30,11 +36,13 @@ export default class UserProfile extends Model {
         caste: DataTypes.STRING,
         motherTongue: {
           type: DataTypes.STRING,
-          field: 'mother_tongue'
+          field: 'mother_tongue',
+           allowNull: true
         },
         aboutMe: {
           type: DataTypes.TEXT,
-          field: 'about_me'
+          field: 'about_me',
+           allowNull: true
         },
         occupation: DataTypes.STRING,
         location: DataTypes.STRING,
@@ -74,8 +82,7 @@ export default class UserProfile extends Model {
         },
         isOnline: {
           type: DataTypes.BOOLEAN,
-          field: 'is_online',
-          defaultValue: false
+          field: 'is_online'
         },
       },
       {

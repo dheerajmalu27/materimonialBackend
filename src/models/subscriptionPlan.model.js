@@ -17,6 +17,10 @@ export default class SubscriptionPlan extends Model {
         durationDays: {
           type: DataTypes.INTEGER,
           field: 'duration_days'
+        },
+        features: {
+          type: DataTypes.JSON,
+          field: 'features'
         }
       },
       {

@@ -93,42 +93,99 @@ const createOtpForType = async (userId, type) => {
 
   return otp;
 };
+
 export const registerUser = async (payload) => {
-  const { email, mobile, password, gender, profileData } = payload;
+  const transaction = await sequelize.transaction();
 
-  // No outer transaction - let updateMyProfile handle transactions internally
-  const existingUser = await User.findOne({
-    where: {
-      [Op.or]: [{ email }, { mobile }]
+  try {
+    const { email, mobile, password, gender, profileData } = payload;
+
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ email }, { mobile }]
+      },
+      transaction
+    });
+
+    if (existingUser) {
+      throw new Error('Email or mobile already registered');
     }
-  });
 
-  if (existingUser) {
-    throw new Error('Email or mobile already registered');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create(
+      {
+        email,
+        mobile,
+        passwordHash: hashedPassword,
+        gender,
+        isActive: true
+      },
+      { transaction }
+    );
+
+    if (profileData) {
+      await userService.updateMyProfile(user.id, profileData, transaction);
+    }
+
+    await transaction.commit();
+
+    return {
+      id: user.id,
+      email: user.email,
+      mobile: user.mobile,
+      gender: user.gender
+    };
+
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
   }
+}
 
-  const hashedPassword = await bcrypt.hash(password, 10);
 
-  const user = await User.create({
-    email,
-    mobile,
-    passwordHash: hashedPassword,
-    gender,
-    isActive: true
-  });
 
-  // Use existing updateMyProfile logic for full profile data
-  if (profileData) {
-    await userService.updateMyProfile(user.id, profileData);
-  }
 
-  return {
-    id: user.id,
-    email: user.email,
-    mobile: user.mobile,
-    gender: user.gender
-  };
-};
+
+
+
+
+// export const registerUser = async (payload) => {
+//   const { email, mobile, password, gender, profileData } = payload;
+
+//   // No outer transaction - let updateMyProfile handle transactions internally
+//   const existingUser = await User.findOne({
+//     where: {
+//       [Op.or]: [{ email }, { mobile }]
+//     }
+//   });
+
+//   if (existingUser) {
+//     throw new Error('Email or mobile already registered');
+//   }
+
+//   const hashedPassword = await bcrypt.hash(password, 10);
+
+//   const user = await User.create({
+//     email,
+//     mobile,
+//     passwordHash: hashedPassword,
+//     gender,
+//     isActive: true
+//   });
+
+//   // Use existing updateMyProfile logic for full profile data
+//   if (profileData) {
+//     await userService.updateMyProfile(user.id, profileData);
+//   }
+
+//   return {
+//     id: user.id,
+//     email: user.email,
+//     mobile: user.mobile,
+//     gender: user.gender
+//   };
+// };
 
 export const loginUser = async ({ email, password }) => {
   const user = await User.findOne({

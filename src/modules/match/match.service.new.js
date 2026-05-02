@@ -1,4 +1,4 @@
-import { Op, literal } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 import User from '../../models/user.model.js';
 import UserProfile from '../../models/userProfile.model.js';
 import PartnerPreference from '../../models/partnerPreference.model.js';
@@ -10,6 +10,18 @@ import Interest from '../../models/interest.model.js';
 import ProfileView from '../../models/profileView.model.js';
 import { matchKundli } from '../../utils/kundliMatcher.js';
 import { calculateAge } from '../../utils/age.js';
+
+// Helper to fetch profile view counts in batch
+const fetchProfileViewCounts = async (userIds) => {
+  if (!userIds.length) return new Map();
+  const rows = await ProfileView.findAll({
+    where: { viewedUserId: { [Op.in]: userIds } },
+    attributes: ['viewedUserId', [fn('COUNT', col('id')), 'count']],
+    group: ['viewedUserId'],
+    raw: true
+  });
+  return new Map(rows.map(r => [r.viewedUserId, parseInt(r.count, 10)]));
+};
 
 // Helper function to calculate profile completion percentage
 const calculateProfileCompletion = (profile, family, lifestyle) => {
@@ -158,21 +170,12 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
           as: 'lifestyle',
           required: false
         }
-      ],
-      attributes: {
-        include: [
-          // Profile view count
-          [
-            literal(`(
-              SELECT COUNT(*)
-              FROM profile_views pv
-              WHERE pv.viewed_user_id = "User"."id"
-            )`),
-            'profileViews'
-          ]
-        ]
-      }
+      ]
     });
+
+    // Fetch profile view counts in batch
+    const candidateIds = candidates.map(c => c.id);
+    const profileViewCounts = await fetchProfileViewCounts(candidateIds);
 
     const matches = [];
 
@@ -297,7 +300,7 @@ export const getMatchSuggestions = async (userId, gender, limit = 20, offset = 0
           // Additional fields
           distance: distance,
           mutualInterests: mutualInterests,
-          profileViews: candidate.dataValues?.profileViews || 0,
+          profileViews: profileViewCounts.get(candidate.id) || 0,
           isOnline: false, // Default to false since column doesn't exist
           familyType: family?.familyType || '',
           motherTongue: profile.motherTongue || '',
@@ -527,3 +530,4 @@ export const getMatchDetails = async (userId, profileUserId) => {
     throw error;
   }
 };
+

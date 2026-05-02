@@ -6,59 +6,151 @@ import Interest from '../../models/interest.model.js';
 import Message from '../../models/message.model.js';
 import PaymentTransaction from '../../models/paymentTransaction.model.js';
 import UserActivity from '../../models/userActivity.model.js';
+import SubscriptionPlan from '../../models/subscriptionPlan.model.js';
 import { logActivity } from '../../utils/activityLogger.js';
 
-const getBaseConfig = () => {
-  const premiumAmountInr = Number.isFinite(env.monetization.premiumYearlyPriceInr)
-    ? env.monetization.premiumYearlyPriceInr
-    : 1200;
+// Cache for subscription plans loaded from database
+let cachedPlans = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60000; // 1 minute cache
 
+const getFreePlanFeatures = () => {
+  const freeDailyLimit = Number.isFinite(env.monetization.freeDailyInterestsLimit)
+    ? env.monetization.freeDailyInterestsLimit
+    : 5;
+  const freeDailyMessagesLimit = Number.isFinite(env.monetization.freeDailyMessagesLimit)
+    ? env.monetization.freeDailyMessagesLimit
+    : 5;
+console.log('Free plan features from env:',  {
+    basicMessaging: env.monetization.freeBasicMessaging,
+    videoCall: false,
+    limitedSearch: env.monetization.freeLimitedSearch,
+    advancedSearch: env.monetization.freeAdvancedSearch,
+    verifiedBadge: env.monetization.freeVerifiedBadge,
+    unlimitedInterests: env.monetization.freeUnlimitedInterests,
+    dailyInterestsLimit: Math.max(0, freeDailyLimit),
+    dailyMessagesLimit: Math.max(0, freeDailyMessagesLimit),
+  });
+  return {
+    basicMessaging: env.monetization.freeBasicMessaging,
+    videoCall: false,
+    limitedSearch: env.monetization.freeLimitedSearch,
+    advancedSearch: env.monetization.freeAdvancedSearch,
+    verifiedBadge: env.monetization.freeVerifiedBadge,
+    unlimitedInterests: env.monetization.freeUnlimitedInterests,
+    dailyInterestsLimit: Math.max(0, freeDailyLimit),
+    dailyMessagesLimit: Math.max(0, freeDailyMessagesLimit),
+  };
+};
+
+const getPremiumPlanFeatures = () => {
   const freeDailyLimit = Number.isFinite(env.monetization.freeDailyInterestsLimit)
     ? env.monetization.freeDailyInterestsLimit
     : 5;
 
-  const freeDailyMessagesLimit = Number.isFinite(env.monetization.freeDailyMessagesLimit)
-    ? env.monetization.freeDailyMessagesLimit
-    : 5;
-
   return {
-    currency: env.razorpay.currency || 'INR',
-    plans: {
+    basicMessaging: env.monetization.premiumBasicMessaging,
+    videoCall: true,
+    limitedSearch: false,
+    advancedSearch: env.monetization.premiumAdvancedSearch,
+    verifiedBadge: env.monetization.premiumVerifiedBadge,
+    unlimitedInterests: env.monetization.premiumUnlimitedInterests,
+    dailyInterestsLimit: env.monetization.premiumUnlimitedInterests ? null : Math.max(0, freeDailyLimit),
+    dailyMessagesLimit: null,
+  };
+};
+
+const loadPlansFromDatabase = async () => {
+  const now = Date.now();
+  console.log('Loading subscription plans from database...');
+  // Return cached plans if still valid
+  // if (cachedPlans && (now - cacheTimestamp) < CACHE_TTL_MS) {
+    
+  // console.log(cachedPlans);
+  //   return cachedPlans;
+  // }
+
+  try {
+    // Load all plans from database
+    const dbPlans = await SubscriptionPlan.findAll({
+      order: [['id', 'ASC']]
+    });
+
+    const plans = {};
+    // console.log('Database plans:', dbPlans);
+    // Always add free plan with config from env
+    plans.free = {
+      planCode: 'Free',
+      displayName: 'Free Tier',
+      billingCycle: 'none',
+      priceInr: 0,
+      durationDays: 0,
+      features: getFreePlanFeatures(),
+    };
+
+// Add plans from database
+    for (const dbPlan of dbPlans) {
+      const planName = dbPlan.planName?.toLowerCase();
+      
+      // Determine billing cycle based on plan name
+      let billingCycle = 'yearly';
+       if (planName?.includes('Diamond') || planName?.includes('Premium')) {
+        billingCycle = 'yearly';
+      } else if (planName?.includes('Free')) {
+        billingCycle = 'none';
+      }
+
+      // Generate planCode from planName
+      const planCode = planName?.replace(/\s+/g, '_') || `plan_${dbPlan.id}`;
+
+      // Use features from database if available, otherwise use default premium features
+      const planFeatures = dbPlan.features || getPremiumPlanFeatures();
+
+      plans[planName] = {
+        planCode,
+        displayName: dbPlan.planName || 'Plan',
+        billingCycle,
+        priceInr: Math.max(0, dbPlan.price || 0),
+        durationDays: Math.max(1, dbPlan.durationDays || 365),
+        features: planFeatures,
+      };
+    }
+
+    cachedPlans = plans;
+    cacheTimestamp = now;
+    console.log('Loaded plans:', plans);
+    return plans;
+  } catch (error) {
+    console.error('Failed to load subscription plans from database:', error);
+    
+    // Return default plans if database fails
+    return {
       free: {
         planCode: 'free',
         displayName: 'Free Tier',
         billingCycle: 'none',
         priceInr: 0,
         durationDays: 0,
-        features: {
-          basicMessaging: env.monetization.freeBasicMessaging,
-          videoCall: false,
-          limitedSearch: env.monetization.freeLimitedSearch,
-          advancedSearch: env.monetization.freeAdvancedSearch,
-          verifiedBadge: env.monetization.freeVerifiedBadge,
-          unlimitedInterests: env.monetization.freeUnlimitedInterests,
-          dailyInterestsLimit: env.monetization.freeUnlimitedInterests ? null : Math.max(0, freeDailyLimit),
-          dailyMessagesLimit: Math.max(0, freeDailyMessagesLimit),
-        }
+        features: getFreePlanFeatures(),
       },
       premium: {
         planCode: 'premium_yearly',
         displayName: 'Premium',
         billingCycle: 'yearly',
-        priceInr: Math.max(0, premiumAmountInr),
-        durationDays: Math.max(1, env.monetization.premiumDurationDays || 365),
-        features: {
-          basicMessaging: env.monetization.premiumBasicMessaging,
-          videoCall: true,
-          limitedSearch: false,
-          advancedSearch: env.monetization.premiumAdvancedSearch,
-          verifiedBadge: env.monetization.premiumVerifiedBadge,
-          unlimitedInterests: env.monetization.premiumUnlimitedInterests,
-          dailyInterestsLimit: env.monetization.premiumUnlimitedInterests ? null : Math.max(0, freeDailyLimit),
-          dailyMessagesLimit: null,
-        }
-      }
-    }
+        priceInr: 1200,
+        durationDays: 365,
+        features: getPremiumPlanFeatures(),
+      },
+    };
+  }
+};
+
+const getBaseConfig = async () => {
+  const plans = await loadPlansFromDatabase();
+  console.log('Base monetization config:', { plans });
+  return {
+    currency: env.razorpay.currency || 'INR',
+    plans,
   };
 };
 
@@ -204,30 +296,47 @@ const activatePremiumSubscription = async ({
   razorpayOrderId,
   razorpayPaymentId,
   source = 'client_verify',
+  planCode,
 }) => {
   const existingActivation = await findActivationByPaymentId(userId, razorpayPaymentId);
   if (existingActivation) {
     const subscription = getPlanFromActivity(existingActivation);
+    const config = await getBaseConfig();
     return {
       success: true,
       alreadyActivated: true,
       subscription,
-      features: getBaseConfig().plans.premium.features,
+      features: config.plans.premium?.features,
     };
   }
 
-  const config = getBaseConfig();
-  const premiumPlan = config.plans.premium;
+  const config = await getBaseConfig();
+  
+  // Find the plan by planCode or fall back to premium
+  let selectedPlan = config.plans.premium;
+  if (planCode) {
+    for (const [key, plan] of Object.entries(config.plans)) {
+      if (plan.planCode === planCode || key === planCode) {
+        selectedPlan = plan;
+        break;
+      }
+    }
+  }
+  
+  if (!selectedPlan) {
+    selectedPlan = config.plans.premium;
+  }
+  
   const startedAt = new Date();
-  const expiresAt = new Date(startedAt.getTime() + premiumPlan.durationDays * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(startedAt.getTime() + selectedPlan.durationDays * 24 * 60 * 60 * 1000);
 
   const description = {
-    planCode: premiumPlan.planCode,
-    planName: premiumPlan.displayName,
+    planCode: selectedPlan.planCode,
+    planName: selectedPlan.displayName,
     startedAt: startedAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
-    amountInr: premiumPlan.priceInr,
-    amountInPaise: premiumPlan.priceInr * 100,
+    amountInr: selectedPlan.priceInr,
+    amountInPaise: selectedPlan.priceInr * 100,
     currency: config.currency,
     razorpayOrderId,
     razorpayPaymentId,
@@ -244,12 +353,14 @@ const activatePremiumSubscription = async ({
     success: true,
     alreadyActivated: false,
     subscription: description,
-    features: premiumPlan.features,
+    features: selectedPlan.features,
   };
 };
 
-export const getMonetizationConfig = () => {
-  return getBaseConfig();
+export const getMonetizationConfig = async () => {
+  const configdata = await getBaseConfig();
+  console.log('Fetching monetization config...',configdata);
+  return configdata;
 };
 
 export const getActiveSubscription = async (userId) => {
@@ -267,15 +378,28 @@ export const getActiveSubscription = async (userId) => {
 };
 
 export const getUserEntitlements = async (userId) => {
-  const config = getBaseConfig();
+  const config = await getBaseConfig();
   const activeSubscription = await getActiveSubscription(userId);
   const hasPremium = Boolean(activeSubscription);
-  const activePlanKey = hasPremium ? 'premium' : 'free';
+  
+  // Find the active plan based on subscription planCode
+  let activePlanKey = 'free';
+  if (hasPremium && activeSubscription?.planCode) {
+    // Find matching plan key from config
+    for (const [key, plan] of Object.entries(config.plans)) {
+      if (plan.planCode === activeSubscription.planCode) {
+        activePlanKey = key;
+        break;
+      }
+    }
+  }
+
+  const plan = config.plans[activePlanKey] || config.plans.free;
 
   return {
     activePlan: activePlanKey,
-    planCode: config.plans[activePlanKey].planCode,
-    features: config.plans[activePlanKey].features,
+    planCode: plan?.planCode || 'free',
+    features: plan?.features || config.plans.free?.features,
     subscription: activeSubscription,
   };
 };
@@ -400,11 +524,25 @@ export const enforceMessageQuota = async (userId) => {
   };
 };
 
-export const createPremiumOrder = async (userId) => {
-  const config = getBaseConfig();
-  const premiumPlan = config.plans.premium;
+export const createPremiumOrder = async (userId, planCode) => {
+  const config = await getBaseConfig();
+  
+  // Find the plan by planCode or use premium as default
+  let selectedPlan = config.plans.premium;
+  if (planCode) {
+    for (const [key, plan] of Object.entries(config.plans)) {
+      if (plan.planCode === planCode || key === planCode) {
+        selectedPlan = plan;
+        break;
+      }
+    }
+  }
+  
+  if (!selectedPlan) {
+    selectedPlan = config.plans.premium;
+  }
 
-  const amountInPaise = Math.round((premiumPlan.priceInr || 0) * 100);
+  const amountInPaise = Math.round((selectedPlan.priceInr || 0) * 100);
   if (amountInPaise <= 0) {
     const err = new Error('Premium plan price must be greater than 0');
     err.statusCode = 400;
@@ -420,14 +558,14 @@ export const createPremiumOrder = async (userId) => {
     receipt,
     notes: {
       userId: String(userId),
-      planCode: premiumPlan.planCode,
-      durationDays: String(premiumPlan.durationDays),
+      planCode: selectedPlan.planCode,
+      durationDays: String(selectedPlan.durationDays),
     },
   });
 
   await safeTrackPaymentEvent({
     userId,
-    planCode: premiumPlan.planCode,
+    planCode: selectedPlan.planCode,
     razorpayOrderId: order.id,
     receipt: order.receipt || receipt,
     amountPaise: amountInPaise,
@@ -441,18 +579,18 @@ export const createPremiumOrder = async (userId) => {
     keyId: env.razorpay.keyId,
     order,
     plan: {
-      planCode: premiumPlan.planCode,
-      displayName: premiumPlan.displayName,
-      amountInr: premiumPlan.priceInr,
+      planCode: selectedPlan.planCode,
+      displayName: selectedPlan.displayName,
+      amountInr: selectedPlan.priceInr,
       amountInPaise,
       currency: config.currency,
-      durationDays: premiumPlan.durationDays,
-      features: premiumPlan.features,
+      durationDays: selectedPlan.durationDays,
+      features: selectedPlan.features,
     },
   };
 };
 
-export const verifyAndActivatePremium = async (userId, payload) => {
+export const verifyAndActivatePremium = async (userId, payload, planCode) => {
   const {
     razorpay_order_id,
     razorpay_payment_id,
@@ -499,11 +637,13 @@ export const verifyAndActivatePremium = async (userId, payload) => {
     razorpayOrderId: razorpay_order_id,
     razorpayPaymentId: razorpay_payment_id,
     source: 'client_verify',
+    planCode,
   });
 
+  const config = await getBaseConfig();
   await safeTrackPaymentEvent({
     userId,
-    planCode: activation?.subscription?.planCode || getBaseConfig().plans.premium.planCode,
+    planCode: activation?.subscription?.planCode || config.plans.premium?.planCode,
     razorpayOrderId: razorpay_order_id,
     razorpayPaymentId: razorpay_payment_id,
     amountPaise: activation?.subscription?.amountInPaise,

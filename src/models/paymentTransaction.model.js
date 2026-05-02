@@ -71,7 +71,7 @@ export default class PaymentTransaction extends Model {
           field: 'raw_payload',
         },
         metadata: {
-          type: DataTypes.JSONB,
+          type: DataTypes.JSON,
           allowNull: true,
         },
         createdAt: {
