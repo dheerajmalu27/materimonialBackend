@@ -13,7 +13,7 @@ import masterRoutes from '../modules/master/master.routes.js';
 import monetizationRoutes from '../modules/monetization/monetization.routes.js';
 import notificationRoutes from '../modules/notification/notification.routes.js';
 import adminRoutes from '../modules/admin/admin.routes.js';
-
+import websiteRoutes from './website/index.js';
 const router = Router();
 
 // AUTH
@@ -32,6 +32,10 @@ router.use('/monetization', monetizationRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 
+
+// ... existing routes
+router.use('/website', websiteRoutes);
+
 // Example route
 router.get('/health', (req, res) => {
   res.json({
@@ -39,6 +43,7 @@ router.get('/health', (req, res) => {
     message: 'API is healthy',
   });
 });
+
 
 // Future routes
 // router.use('/auth', authRoutes);

@@ -21,6 +21,13 @@ import Conversation from './conversation.model.js';
 import Message from './message.model.js';
 import UserPushToken from './userPushToken.model.js';
 import PaymentTransaction from './paymentTransaction.model.js';
+import ProfileViewEvent from './profileViewEvent.model.js';
+import ConversationUserState from './conversationUserState.model.js';
+import MessageRead from './messageRead.model.js';
+import UserSettings from './userSettings.model.js';
+import UserVerification from './userVerification.model.js';
+import UserVerificationDocument from './userVerificationDocument.model.js';
+import UserSubscription from './userSubscription.model.js';
 
 // Initialize models
 const models = {
@@ -44,7 +51,15 @@ const models = {
   Message: Message.init(sequelize),
   UserPushToken: UserPushToken.init(sequelize),
   PaymentTransaction: PaymentTransaction.init(sequelize),
+  ProfileViewEvent: ProfileViewEvent.init(sequelize),
+  ConversationUserState: ConversationUserState.init(sequelize),
+  MessageRead: MessageRead.init(sequelize),
+  UserSettings: UserSettings.init(sequelize),
+  UserVerification: UserVerification.init(sequelize),
+  UserVerificationDocument: UserVerificationDocument.init(sequelize),
+  UserSubscription: UserSubscription.init(sequelize),
 };
+
 
 // Setup associations
 Object.values(models).forEach(model => {

@@ -21,6 +21,14 @@ export default class BlockedUser extends Model {
           type: DataTypes.DATE,
           field: 'blocked_at',
           defaultValue: DataTypes.NOW
+        },
+        reason: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+        details: {
+          type: DataTypes.TEXT,
+          allowNull: true,
         }
       },
       {

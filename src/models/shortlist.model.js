@@ -20,6 +20,25 @@ export default class Shortlist extends Model {
         createdAt: {
           type: DataTypes.DATE,
           field: 'created_at'
+        },
+        notes: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        favoriteLevel: {
+          type: DataTypes.ENUM('Gold', 'Platinum', 'Diamond'),
+          allowNull: false,
+          defaultValue: 'Gold',
+          field: 'favorite_level',
+        },
+        updatedAt: {
+          type: DataTypes.DATE,
+          field: 'updated_at',
+        },
+        lastSavedAt: {
+          type: DataTypes.DATE,
+          field: 'last_saved_at',
+          allowNull: true,
         }
       },
       {
@@ -30,4 +49,14 @@ export default class Shortlist extends Model {
       }
     );
   }
+
+  static associate(models) {
+    // Required for websiteShortlist.service.js include:
+    // { model: User, as: 'shortlistedUser' }
+    this.belongsTo(models.User, {
+      foreignKey: 'shortlistedUserId',
+      as: 'shortlistedUser',
+    });
+  }
 }
+

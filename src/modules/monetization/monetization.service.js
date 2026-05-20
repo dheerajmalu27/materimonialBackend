@@ -349,6 +349,35 @@ const activatePremiumSubscription = async ({
     description,
   });
 
+  // Update plan-dependent defaults in user.settings based on backend subscription state
+  try {
+    // Map plan code -> premium/free for now.
+    // If you add more plans later (Diamond/Gold), extend mapping here.
+    const isPremiumLike = true;
+
+    const { defaultWebsiteSettingsByPlan } = await import('../user/defaultWebsiteSettings.js');
+
+    const base = defaultWebsiteSettingsByPlan.free;
+    const upgraded = isPremiumLike ? defaultWebsiteSettingsByPlan.premium : base;
+
+    // Never trust frontend; only backend entitlements decide.
+    const user = await (await import('../../models/user.model.js')).default.findByPk(userId);
+    if (user) {
+      user.settings = {
+        ...(user.settings && typeof user.settings === 'object' ? user.settings : {}),
+        ...upgraded,
+        billing: {
+          ...(user.settings?.billing && typeof user.settings.billing === 'object' ? user.settings.billing : {}),
+          ...upgraded.billing,
+          currentPlan: upgraded.billing.currentPlan,
+        },
+      };
+      await user.save();
+    }
+  } catch (e) {
+    console.error('Failed to update user.settings after subscription activation:', e?.message || e);
+  }
+
   return {
     success: true,
     alreadyActivated: false,

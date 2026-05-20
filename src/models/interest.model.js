@@ -21,6 +21,34 @@ export default class Interest extends Model {
           type: DataTypes.ENUM('pending', 'accepted', 'rejected', 'sent'),
           defaultValue: 'pending'
         },
+        viewerViewedAt: {
+          type: DataTypes.DATE,
+          field: 'viewer_viewed_at',
+          allowNull: true,
+        },
+        senderViewedAt: {
+          type: DataTypes.DATE,
+          field: 'sender_viewed_at',
+          allowNull: true,
+        },
+        viewedCount: {
+          type: DataTypes.BIGINT,
+          field: 'viewed_count',
+          allowNull: false,
+          defaultValue: 0,
+        },
+        requestType: {
+          type: DataTypes.STRING,
+          field: 'request_type',
+          allowNull: false,
+          defaultValue: 'interest',
+        },
+        uiStatus: {
+          type: DataTypes.STRING,
+          field: 'ui_status',
+          allowNull: false,
+          defaultValue: 'new',
+        },
         message: {
           type: DataTypes.TEXT,
           allowNull: true

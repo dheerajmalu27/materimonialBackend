@@ -119,10 +119,25 @@ export const registerUser = async (payload) => {
         mobile,
         passwordHash: hashedPassword,
         gender,
-        isActive: true
+        isActive: true,
+        // Insert default settings on registration (Free baseline)
+        settings: undefined,
       },
       { transaction }
     );
+
+    // Initialize settings defaults (Free) if not already present
+    try {
+      // Lazy import to avoid circular deps
+      const { defaultWebsiteSettingsByPlan } = await import('../user/defaultWebsiteSettings.js');
+      if (!user.settings) {
+        user.settings = defaultWebsiteSettingsByPlan.free;
+        await user.save({ transaction });
+      }
+    } catch (e) {
+      // If default settings init fails, do not block registration
+      console.error('Failed to init default website settings on register:', e?.message || e);
+    }
 
     if (profileData) {
       await userService.updateMyProfile(user.id, profileData, transaction);
