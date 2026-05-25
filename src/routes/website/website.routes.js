@@ -8,6 +8,10 @@ import * as websiteShortlistController from '../../modules/interactions/websiteS
 import * as chatController from '../../modules/chat/chat.controller.js';
 import * as websiteChatController from '../../modules/chat/websiteChat.controller.js';
 import * as websiteSettingsController from '../../modules/user/websiteSettings.controller.js';
+import * as uc from '../../modules/user/user.controller.js';
+import { getPotentialMatches } from '../../modules/match/match.controller.js';
+
+
 
 const router = express.Router();
 
@@ -107,11 +111,22 @@ router.post('/messages/conversations/:conversationId/messages', authGuard, websi
 router.get('/messages/unread-count', authGuard, chatController.unreadCount);
 
 /**
+ * Match potential (same logic as /v1/matches/potential)
+ */
+router.get('/matches/potential', authGuard, getPotentialMatches);
+
+/**
+ * User profile (same logic as /v1/user/me/profile)
+ */
+router.get('/me/profile', authGuard, uc.getMyProfile);
+
+/**
  * Settings
  */
+
 router.get('/users/me/settings', authGuard, websiteSettingsController.getMyWebsiteSettings);
 router.put('/users/me/settings', authGuard, websiteSettingsController.updateMyWebsiteSettings);
 
-
 export default router;
+
 
