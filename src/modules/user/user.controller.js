@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import UserProfile from '../../models/userProfile.model.js';
 import { getUserEntitlements } from '../monetization/monetization.service.js';
-
+import { env } from '../../config/env.js';
 const parseFamilyMeta = (family) => {
   const raw = family?.familyNativePlace;
   if (!raw || typeof raw !== 'string') {
@@ -365,7 +365,7 @@ export const uploadProfilePhotos = async (req, res) => {
     const protocol = req.protocol;
     const urls = req.files.map(file => {
       // build publicly accessible URL
-      return `${protocol}://${host}/uploads/${userId}/${file.filename}`;
+      return `${protocol}://${host}/${env.fileuploadPrefix}/${userId}/${file.filename}`;
     });
 
     // do not automatically update DB here; front-end can decide which image to set as profileImage
@@ -399,7 +399,7 @@ export const uploadBioDataPdf = async (req, res) => {
 
     const host = req.get('host');
     const protocol = req.protocol;
-    const url = `${protocol}://${host}/uploads/${userId}/${req.file.filename}`;
+    const url = `${protocol}://${host}/${env.fileuploadPrefix}/${userId}/${req.file.filename}`;
 
     await UserProfile.upsert({ userId, biodataPdf: url }, { returning: false });
 

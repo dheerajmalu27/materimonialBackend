@@ -5,11 +5,11 @@ dotenv.config();
 export const env = {
   nodeEnv: process.env.NODE_ENV,
   port: process.env.PORT,
-  apiPrefix: process.env.API_PREFIX || '/api/v1',
-
+  apiPrefix: process.env.API_PREFIX || '/v1',
+  fileuploadPrefix: process.env.FILE_UPLOAD_DESTINATION || 'api/uploads',
   db: {
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    // port: process.env.DB_PORT,
     name: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
